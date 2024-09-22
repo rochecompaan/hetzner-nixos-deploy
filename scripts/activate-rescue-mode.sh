@@ -6,24 +6,41 @@ echo "Decrypting secrets..."
 USERNAME=$(sops -d --extract '["hetzner_robot_username"]' ./secrets/hetzner.json)
 PASSWORD=$(sops -d --extract '["hetzner_robot_password"]' ./secrets/hetzner.json)
 SERVER_IP="$1"
-FINGERPRINTS="$2"
+
+echo "Extracting PGP fingerprints from .sops.yaml..."
+FINGERPRINTS=$(yq '.keys[]' .sops.yaml)
+
+echo "Generating SSH public keys from PGP fingerprints..."
+SSH_PUBLIC_KEYS=""
+for fingerprint in $FINGERPRINTS; do
+  SSH_KEY=$(gpg --export-ssh-key "$fingerprint")
+  if [ -n "$SSH_KEY" ]; then
+    SSH_PUBLIC_KEYS+="$SSH_KEY"$'\n'
+  else
+    echo "Warning: No SSH key found for fingerprint $fingerprint"
+  fi
+done
+
+if [ -z "$SSH_PUBLIC_KEYS" ]; then
+  echo "Error: No SSH public keys extracted."
+  exit 1
+fi
 
 HETZNER_API_BASE_URL="https://robot-ws.your-server.de"
 
 echo "Checking current rescue mode state for $SERVER_IP..."
 RESCUE_STATE=$(curl -s -u "$USERNAME:$PASSWORD" "$HETZNER_API_BASE_URL/boot/$SERVER_IP/rescue")
 
-if echo "$RESCUE_STATE" | grep -q '"active":true'
-then
+if echo "$RESCUE_STATE" | grep -q '"active":true'; then
   echo "Rescue mode is already active for $SERVER_IP. Skipping activation."
-  return 0
+  exit 0
 fi
 
 echo "Composing rescue request body for $SERVER_IP..."
 RESCUE_REQUEST=$(jq -n \
   --arg os "linux" \
   --arg arch "64" \
-  --arg key "$FINGERPRINTS" \
+  --arg key "$SSH_PUBLIC_KEYS" \
   '{os: $os, arch: $arch, authorized_key: $key}')
 
 echo "Activating rescue mode for $SERVER_IP..."
