@@ -8,8 +8,9 @@
 
   outputs = { self, nixpkgs, sops-nix }:
     let
+      system = "x86_64-linux";
       pkgs = import nixpkgs {
-        system = "x86_64-linux";
+        system = "${system}";
         config = { allowUnfree = true; };
       };
     in
@@ -45,6 +46,13 @@
           type = "app";
           program = "${self.packages.x86_64-linux.generate-hardware-config}/bin/generate-hardware-config";
         };
+      };
+
+      devShell.${system} = pkgs.mkShell {
+        buildInputs = [
+          pkgs.yq
+          pkgs.sops
+        ];
       };
     };
 }
