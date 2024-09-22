@@ -15,7 +15,7 @@ if [ -z "$SERVER_IP" ]; then
 fi
 
 echo "Extracting PGP fingerprints from .sops.yaml..."
-FINGERPRINTS=$(yq '.keys[]' .sops.yaml | tr -d '"')
+FINGERPRINTS=$(yq -r '.keys[]' .sops.yaml)
 
 echo "Generating SSH public keys from PGP fingerprints..."
 SSH_PUBLIC_KEYS=""
