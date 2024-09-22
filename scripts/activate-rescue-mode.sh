@@ -14,26 +14,42 @@ if [ -z "$SERVER_IP" ]; then
   exit 1
 fi
 
-echo "Extracting PGP fingerprints from .sops.yaml..."
-FINGERPRINTS=$(yq -r '.keys[]' .sops.yaml)
+# Extract PGP IDs from .sops.yaml using yq
+GPG_IDS=$(yq -r '.keys[]' .sops.yaml)
 
-echo "Generating SSH public keys from PGP fingerprints..."
-SSH_PUBLIC_KEYS=""
-for fingerprint in $FINGERPRINTS; do
-  SSH_KEY=$(gpg --export-ssh-key "$fingerprint")
-  if [ -n "$SSH_KEY" ]; then
-    SSH_PUBLIC_KEYS+="$SSH_KEY"$'\n'
-  else
-    echo "Warning: No SSH key found for fingerprint $fingerprint"
-  fi
-done
-
-if [ -z "$SSH_PUBLIC_KEYS" ]; then
-  echo "Error: No SSH public keys extracted."
-  exit 1
+# Check if any GPG IDs were found
+if [ -z "$GPG_IDS" ]; then
+    echo "Error: No GPG IDs found in .sops.yaml."
+    exit 1
 fi
 
-HETZNER_API_BASE_URL="https://robot-ws.your-server.de"
+# Initialize an array to hold fingerprints
+FINGERPRINTS=()
+
+# Loop over each GPG ID and compute its SSH MD5 fingerprint
+for GPG_ID in $GPG_IDS; do
+    # Export the GPG public key in SSH format and compute the MD5 fingerprint
+    FINGERPRINT=$(gpg --export-ssh-key "$GPG_ID" 2>/dev/null | \
+        ssh-keygen -E md5 -lf - 2>/dev/null | \
+        awk '{gsub("MD5:", "", $2); print $2}')
+
+    # Check if the fingerprint was successfully computed
+    if [ -n "$FINGERPRINT" ]; then
+        # Append the fingerprint to the array
+        FINGERPRINTS+=("$FINGERPRINT")
+    else
+        echo "Warning: Failed to compute fingerprint for GPG ID: $GPG_ID"
+    fi
+done
+
+# Check if any fingerprints were computed
+if [ ${#FINGERPRINTS[@]} -eq 0 ]; then
+    echo "Error: No fingerprints were computed."
+    exit 1
+fi
+
+# Concatenate the fingerprints (separated by commas)
+FINGERPRINTS=$(IFS=,; echo "${FINGERPRINTS[*]}")
 
 echo "Checking current rescue mode state for $SERVER_IP..."
 RESCUE_STATE=$(curl -s -u "$USERNAME:$PASSWORD" "$HETZNER_API_BASE_URL/boot/$SERVER_IP/rescue")
