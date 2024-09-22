@@ -20,6 +20,7 @@
           name = "activate-rescue-mode";
           runtimeInputs = with pkgs; [
             curl
+            netcat
             sops-nix
           ];
           text = builtins.readFile ./scripts/activate-rescue-mode.sh;
@@ -50,8 +51,9 @@
 
       devShell.${system} = pkgs.mkShell {
         buildInputs = [
-          pkgs.yq
+          pkgs.netcat
           pkgs.sops
+          pkgs.yq
         ];
       };
     };
