@@ -52,27 +52,26 @@ fi
 FINGERPRINTS=$(IFS=,; echo "${FINGERPRINTS[*]}")
 
 echo "Checking current rescue mode state for $SERVER_IP..."
-RESCUE_STATE=$(curl -s -u "$USERNAME:$PASSWORD" "$HETZNER_API_BASE_URL/boot/$SERVER_IP/rescue")
+RESPONSE=$(curl -s -u "$USERNAME:$PASSWORD" "$HETZNER_API_BASE_URL/boot/$SERVER_IP/rescue")
+HTTP_STATUS=$(echo $RESPONSE | yq -r '.error.status')
+if [[ $HTTP_STATUS -eq 401 ]]; then
+  echo "Error: Unauthorized access. Please check your credentials."
+  exit 1
+fi
 
-if echo "$RESCUE_STATE" | grep -q '"active":true'; then
+RESCUE_STATE=$(echo $RESPONSE | yq -r '.rescue.active')
+if [[ $RESCUE_STATE == "true" ]]; then
   echo "Rescue mode is already active for $SERVER_IP. Skipping activation."
   exit 0
 fi
 
-echo "Composing rescue request body for $SERVER_IP..."
-RESCUE_REQUEST=$(jq -n \
-  --arg os "linux" \
-  --arg arch "64" \
-  --arg key "$SSH_PUBLIC_KEYS" \
-  '{os: $os, arch: $arch, authorized_key: $key}')
-
 echo "Activating rescue mode for $SERVER_IP..."
-curl -s -X POST -u "$USERNAME:$PASSWORD" \
-  -d "$(echo "$RESCUE_REQUEST" | jq -r @uri)" \
+curl -u "$USERNAME:$PASSWORD" \
+  -d "os=linux&authorized_key[]=$FINGERPRINTS" \
   "$HETZNER_API_BASE_URL/boot/$SERVER_IP/rescue"
 
 echo "Executing hardware reset for $SERVER_IP..."
-curl -s -X POST -u "$USERNAME:$PASSWORD" \
+curl -s -u "$USERNAME:$PASSWORD" \
   -d "type=hw" \
   "$HETZNER_API_BASE_URL/reset/$SERVER_IP"
 
