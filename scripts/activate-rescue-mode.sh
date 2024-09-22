@@ -8,7 +8,7 @@ PASSWORD=$(sops -d --extract '["hetzner_robot_password"]' ./secrets/hetzner.json
 SERVER_IP="$1"
 
 echo "Extracting PGP fingerprints from .sops.yaml..."
-FINGERPRINTS=$(yq '.keys[]' .sops.yaml)
+FINGERPRINTS=$(yq '.keys[]' .sops.yaml | tr -d '"')
 
 echo "Generating SSH public keys from PGP fingerprints..."
 SSH_PUBLIC_KEYS=""
