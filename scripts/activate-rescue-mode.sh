@@ -11,9 +11,10 @@ FINGERPRINTS="$2"
 HETZNER_API_BASE_URL="https://robot-ws.your-server.de"
 
 echo "Checking current rescue mode state for $SERVER_IP..."
-RESCUE_STATE=$(curl -s -u $USERNAME:$PASSWORD "$HETZNER_API_BASE_URL/boot/$SERVER_IP/rescue")
+RESCUE_STATE=$(curl -s -u "$USERNAME:$PASSWORD" "$HETZNER_API_BASE_URL/boot/$SERVER_IP/rescue")
 
-if [[ $(echo "$RESCUE_STATE" | grep '"active":true') ]]; then
+if echo "$RESCUE_STATE" | grep -q '"active":true'
+then
   echo "Rescue mode is already active for $SERVER_IP. Skipping activation."
   return 0
 fi
@@ -26,12 +27,12 @@ RESCUE_REQUEST=$(jq -n \
   '{os: $os, arch: $arch, authorized_key: $key}')
 
 echo "Activating rescue mode for $SERVER_IP..."
-curl -s -X POST -u $USERNAME:$PASSWORD \
-  -d "$(echo $RESCUE_REQUEST | jq -r @uri)" \
+curl -s -X POST -u "$USERNAME:$PASSWORD" \
+  -d "$(echo "$RESCUE_REQUEST" | jq -r @uri)" \
   "$HETZNER_API_BASE_URL/boot/$SERVER_IP/rescue"
 
 echo "Executing hardware reset for $SERVER_IP..."
-curl -s -X POST -u $USERNAME:$PASSWORD \
+curl -s -X POST -u "$USERNAME:$PASSWORD" \
   -d "type=hw" \
   "$HETZNER_API_BASE_URL/reset/$SERVER_IP"
 
