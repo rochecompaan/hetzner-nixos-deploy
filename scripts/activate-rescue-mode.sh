@@ -2,6 +2,8 @@
 
 set -e
 
+HETZNER_API_BASE_URL="https://robot-ws.your-server.de"
+
 echo "Decrypting secrets..."
 USERNAME=$(sops -d --extract '["hetzner_robot_username"]' ./secrets/hetzner.json)
 PASSWORD=$(sops -d --extract '["hetzner_robot_password"]' ./secrets/hetzner.json)
