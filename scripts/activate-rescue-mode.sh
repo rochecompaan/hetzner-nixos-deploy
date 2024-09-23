@@ -20,6 +20,7 @@ http_status_check() {
     local HTTP_STATUS=$(echo "$RESPONSE" | yq -r '.error.status')
     
     if [[ $HTTP_STATUS =~ ^[4-9][0-9]{2}$ ]]; then
+        echo "Response: $RESPONSE"
         case $HTTP_STATUS in
             401)
                 echo "Error: Unauthorized access. Please check your credentials."
@@ -36,10 +37,7 @@ http_status_check() {
 }
 
 # Extract fingerprints from sops.yaml
-FINGERPRINTS=$(yq -r '.fingerprints[]' .sops.yaml)
-
-# Join lines and encode as URI
-FINGERPRINTS=$(echo $FINGERPRINTS | tr -s '\n' ',' | yq @uri)
+FINGERPRINTS=$(yq -r '.fingerprints | map("authorized_key[]="+.) | join("&")' .sops.yaml)
 
 echo "Checking current rescue mode state for $SERVER_IP..."
 RESPONSE=$(curl -s -u "$USERNAME:$PASSWORD" "$HETZNER_API_BASE_URL/boot/$SERVER_IP/rescue")
@@ -52,8 +50,8 @@ if [[ $RESCUE_STATE == "true" ]]; then
 fi
 
 echo "Activating rescue mode for $SERVER_IP..."
-RESPONSE=$(curl -u "$USERNAME:$PASSWORD" \
-  -d "os=linux&authorized_key[]=$FINGERPRINTS" \
+RESPONSE=$(curl -s -u "$USERNAME:$PASSWORD" \
+  -d "os=linux&$FINGERPRINTS" \
   "$HETZNER_API_BASE_URL/boot/$SERVER_IP/rescue")
 http_status_check "$RESPONSE"
 
