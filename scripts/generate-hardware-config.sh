@@ -3,11 +3,18 @@
 set -e
 
 REMOTE_SERVER="$1"
+HOSTNAME="$2"
 REMOTE_USER="root"
 LOCAL_DIR="./nixos-configs/$REMOTE_SERVER"
 
 echo "Creating local directory to store configuration files..."
 mkdir -p $LOCAL_DIR
+# Check if required variables are set
+if [ -z "$REMOTE_SERVER" ] || [ -z "$HOSTNAME" ]; then
+    echo "Error: REMOTE_SERVER, and HOSTNAME must be set."
+    echo "Usage: gegenerate-disko-config.sh <server> <host>"
+    exit 1
+fi
 
 echo "Running kexec installer and generating hardware config on remote server..."
 
