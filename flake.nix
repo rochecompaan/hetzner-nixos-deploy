@@ -26,11 +26,20 @@
           text = builtins.readFile ./scripts/activate-rescue-mode.sh;
         };
 
+        generate-disko-config = pkgs.writeShellApplication {
+          name = "generate-disko-config";
+          runtimeInputs = with pkgs; [
+            curl
+            yq
+            sops-nix
+          ];
+          text = builtins.readFile ./scripts/generate-disko-config.sh;
+        };
+
         generate-hardware-config = pkgs.writeShellApplication {
           name = "generate-hardware-config";
           runtimeInputs = with pkgs; [
             curl
-            jq
             sops-nix
           ];
           text = builtins.readFile ./scripts/generate-hardware-config.sh;
@@ -41,6 +50,11 @@
         activate-rescue-mode = {
           type = "app";
           program = "${self.packages.x86_64-linux.activate-rescue-mode}/bin/activate-rescue-mode";
+        };
+
+        generate-disko-config = {
+          type = "app";
+          program = "${self.packages.x86_64-linux.generate-disko-config}/bin/generate-disko-config";
         };
 
         generate-hardware-config = {
