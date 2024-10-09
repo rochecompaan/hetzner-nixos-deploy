@@ -27,8 +27,8 @@ ssh $REMOTE_USER@$REMOTE_SERVER << 'EOF'
     /root/kexec/run
 EOF
 
-echo "Waiting for $SERVER_IP to reboot into the NixOS installer ..."
-sleep 10
+echo "Waiting for $REMOTE_SERVER to reboot into the NixOS installer ..."
+sleep 30
 
 ssh $REMOTE_USER@$REMOTE_SERVER << 'EOF'
     echo "Generating hardware configuration..."
