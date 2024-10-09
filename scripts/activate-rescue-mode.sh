@@ -17,7 +17,8 @@ fi
 
 http_status_check() {
     local RESPONSE=$1
-    local HTTP_STATUS=$(echo "$RESPONSE" | yq -r '.error.status')
+    local HTTP_STATUS
+    HTTP_STATUS=$(echo "$RESPONSE" | yq -r '.error.status')
     
     if [[ $HTTP_STATUS =~ ^[4-9][0-9]{2}$ ]]; then
         echo "Response: $RESPONSE"
@@ -43,7 +44,7 @@ echo "Checking current rescue mode state for $SERVER_IP..."
 RESPONSE=$(curl -s -u "$USERNAME:$PASSWORD" "$HETZNER_API_BASE_URL/boot/$SERVER_IP/rescue")
 http_status_check "$RESPONSE"
 
-RESCUE_STATE=$(echo $RESPONSE | yq -r '.rescue.active')
+RESCUE_STATE=$(echo "$RESPONSE" | yq -r '.rescue.active')
 if [[ $RESCUE_STATE == "true" ]]; then
   echo "Rescue mode is already active for $SERVER_IP. Skipping activation."
   exit 0

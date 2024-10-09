@@ -15,7 +15,7 @@ fi
 
 # Create the output directory
 OUTPUT_DIR="./systems/x86_64-linux/$HOSTNAME"
-mkdir -p $OUTPUT_DIR
+mkdir -p "$OUTPUT_DIR"
 DISKO_CONFIG_FILE="$OUTPUT_DIR/disko.nix"
 
 # Function to convert size to MB
@@ -26,14 +26,14 @@ convert_to_mb() {
 
     case $unit in
         G) echo $((value * 1024)) ;;
-        M) echo $value ;;
+        M) echo "$value" ;;
         K) echo $((value / 1024)) ;;
         *) echo $((size / 1048576)) ;;  # Assume bytes if no unit
     esac
 }
 
 # Get list of disks, excluding loopback devices, using SSH
-disks=$(ssh $REMOTE_USER@$REMOTE_SERVER "lsblk -dnp -o NAME,SIZE,TYPE | grep -v loop | awk '\$3 == \"disk\" {print \$1 \",\" \$2}'")
+disks=$(ssh "$REMOTE_USER@$REMOTE_SERVER" "lsblk -dnp -o NAME,SIZE,TYPE | grep -v loop | awk '\$3 == \"disk\" {print \$1 \",\" \$2}'")
 
 # Count the number of disks
 disk_count=$(echo "$disks" | wc -l)
@@ -42,13 +42,13 @@ disk_count=$(echo "$disks" | wc -l)
 use_raid=false
 if [ "$disk_count" -eq 2 ]; then
     sizes=$(echo "$disks" | cut -d',' -f2 | sort -u)
-    if [ $(echo "$sizes" | wc -l) -eq 1 ]; then
+    if [ "$(echo "$sizes" | wc -l)" -eq 1 ]; then
         use_raid=true
     fi
 fi
 
 # Start of disko.nix content
-cat << EOF > $DISKO_CONFIG_FILE
+cat << EOF > "$DISKO_CONFIG_FILE"
 { lib, ... }:
 {
   disko.devices = {
@@ -59,10 +59,10 @@ if [ "$use_raid" = true ]; then
     # RAID1 configuration
     disk_index=0
     for disk_info in $disks; do
-        disk=$(echo $disk_info | cut -d',' -f1)
-        disk_name=$(basename $disk)
+        disk=$(echo "$disk_info" | cut -d',' -f1)
+        disk_name=$(basename "$disk")
         
-        cat << EOF >> $DISKO_CONFIG_FILE
+        cat << EOF >> "$DISKO_CONFIG_FILE"
       $disk_name = {
         type = "disk";
         device = "$disk";
@@ -93,7 +93,7 @@ EOF
     done
 
     # Add RAID1 configuration
-    cat << EOF >> $DISKO_CONFIG_FILE
+    cat << EOF >> "$DISKO_CONFIG_FILE"
     };
     mdadm = {
       raid1 = {
@@ -122,8 +122,8 @@ EOF
 else
     # Single disk configuration
     disk_info=$(echo "$disks" | head -n1)
-    disk=$(echo $disk_info | cut -d',' -f1)
-    disk_name=$(basename $disk)
+    disk=$(echo "$disk_info" | cut -d',' -f1)
+    disk_name=$(basename "$disk")
 
     cat << EOF >> "./systems/$HOSTNAME/disko.nix"
       $disk_name = {
