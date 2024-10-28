@@ -24,14 +24,14 @@ if ! command -v sops &> /dev/null; then
     exit 1
 fi
 
-# Create secrets directory if it doesn't exist
-mkdir -p "$(dirname "${SECRETS_FILE}")"
-
 # Check if SOPS config exists
 if [[ ! -f "${SOPS_CONFIG}" ]]; then
     echo "Error: ${SOPS_CONFIG} not found. Please create a SOPS configuration first."
     exit 1
 fi
+
+# Create secrets directory if it doesn't exist
+mkdir -p "$(dirname "${SECRETS_FILE}")"
 
 # Function to generate WireGuard keypair
 generate_wireguard_keypair() {
@@ -69,8 +69,11 @@ for server in "$@"; do
        "${TEMP_FILE}" > "${TEMP_FILE}.new" && mv "${TEMP_FILE}.new" "${TEMP_FILE}"
 done
 
-# Encrypt the final file with SOPS
-sops --encrypt "${TEMP_FILE}" > "${SECRETS_FILE}"
+# Copy the unencrypted file to the target location
+cp "${TEMP_FILE}" "${SECRETS_FILE}"
+
+# Encrypt the file in place using sops
+sops --encrypt --in-place "${SECRETS_FILE}"
 
 # Clean up
 rm "${TEMP_FILE}"
