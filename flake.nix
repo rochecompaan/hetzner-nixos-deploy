@@ -44,6 +44,16 @@
           ];
           text = builtins.readFile ./scripts/generate-hardware-config.sh;
         };
+
+        generate-wireguard-keys = pkgs.writeShellApplication {
+          name = "generate-wireguard-keys";
+          runtimeInputs = with pkgs; [
+            jq
+            sops
+            wireguard-tools
+          ];
+          text = builtins.readFile ./scripts/generate-wireguard-keys.sh;
+        };
       };
 
       apps = {
@@ -60,6 +70,11 @@
         generate-hardware-config = {
           type = "app";
           program = "${self.packages.x86_64-linux.generate-hardware-config}/bin/generate-hardware-config";
+        };
+
+        generate-wireguard-keys = {
+          type = "app";
+          program = "${self.packages.x86_64-linux.generate-wireguard-keys}/bin/generate-wireguard-keys";
         };
       };
 
