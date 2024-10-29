@@ -14,35 +14,11 @@
         system = "${system}";
         config = { allowUnfree = true; };
       };
-
-      # Function to read and parse the WireGuard secrets file
-      getWireguardSecrets = environment: let
-        secretsFile = ./secrets/wireguard.json;
-        secretsContent = builtins.readFile secretsFile;
-        secrets = builtins.fromJSON secretsContent;
-      in
-        secrets.servers.${environment} or {};
-
-      # Function to generate WireGuard peer configurations
-      generateWireguardPeers = environment: serverName: let
-        secrets = getWireguardSecrets environment;
-        servers = builtins.removeAttrs secrets [ serverName ];
-        # Add admin peers to the configuration
-        adminPeers = (builtins.fromJSON (builtins.readFile ./secrets/wireguard.json)).admins or {};
-        allPeers = servers // adminPeers;
-      in
-        builtins.mapAttrs
-          (name: value: {
-            publicKey = value.publicKey;
-            allowedIPs = [ "10.0.0.0/24" ]; # Adjust IP range as needed
-            endpoint = value.endpoint or null;
-          })
-          allPeers;
     in
     {
       lib = {
         # Function to create a server configuration
-        mkServer = { name, environment, networking, authorizedKeys }: nixpkgs.lib.nixosSystem {
+        mkServer = { name, environment, networking, authorizedKeys, servers }: nixpkgs.lib.nixosSystem {
           inherit system;
 
           modules = [
@@ -62,7 +38,35 @@
                 inherit authorizedKeys;
                 hostname = name;
                 inherit networking;
-                wireguardPeers = generateWireguardPeers environment name;
+                getWireguardPeers = config: 
+                  # Generate server peers
+                  let
+                    serverPeers = nixpkgs.lib.mapAttrsToList
+                      (peerName: peerCfg: {
+                        inherit peerName;
+                        publicKeyFile = if config == null 
+                          then null
+                          else config.sops.secrets."wireguard/${peerName}/publicKey".path;
+                        allowedIPs = [ "${peerCfg.networking.privateIP}/32" ];
+                        endpoint = "${peerCfg.networking.publicIP}:51820";
+                        persistentKeepalive = 25;
+                      })
+                      (nixpkgs.lib.filterAttrs (peerName: _: peerName != name) servers);
+                    
+                    # Generate admin peers
+                    adminPeersList = map 
+                      (adminPeer: {
+                        name = adminPeer.name;
+                        publicKeyFile = if config == null
+                          then null
+                          else config.sops.secrets."wireguard/admins/${adminPeer.name}/publicKey".path;
+                        allowedIPs = [ "${adminPeer.privateIP}/32" ];
+                        endpoint = adminPeer.endpoint;
+                        persistentKeepalive = 25;
+                      })
+                      adminPeers;
+                  in
+                    serverPeers ++ adminPeersList;
               };
             }
           ];
