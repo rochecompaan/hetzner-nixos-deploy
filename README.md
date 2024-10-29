@@ -22,7 +22,7 @@ nix run .#generate-hardware-configuration -- <server-ip> <hostname>
 ## Generate wireguards keys
 
 ```
-nix run .#generate-wireguard-keys -- <server1> <server2> <server2>
+nix run .#generate-wireguard-keys -- <environment> <server1> <server2> <server2>
 ```
 
 This will update `secrets/wireguard.json` with the following structure:
