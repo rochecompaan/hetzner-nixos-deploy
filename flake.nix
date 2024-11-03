@@ -18,7 +18,25 @@
     {
       lib = {
         # Function to create a server configuration
-        mkServer = { name, environment, networking, authorizedKeys, servers }: nixpkgs.lib.nixosSystem {
+        mkServer = { 
+          name, 
+          environment, 
+          networking, 
+          authorizedKeys, 
+          servers,
+          adminNames ? [] # List of admin names to include from wireguard.json
+        }: 
+        let
+          wireguardConfig = builtins.fromJSON (builtins.readFile ./secrets/wireguard.json);
+          adminPeers = map 
+            (adminName: {
+              name = adminName;
+              publicKey = wireguardConfig.admins.${adminName}.publicKey;
+              endpoint = wireguardConfig.admins.${adminName}.endpoint;
+              privateIP = wireguardConfig.admins.${adminName}.privateIP;
+            })
+            adminNames;
+        in nixpkgs.lib.nixosSystem {
           inherit system;
 
           modules = [
@@ -57,9 +75,7 @@
                     adminPeersList = map 
                       (adminPeer: {
                         name = adminPeer.name;
-                        publicKeyFile = if config == null
-                          then null
-                          else config.sops.secrets."wireguard/admins/${adminPeer.name}/publicKey".path;
+                        publicKey = adminPeer.publicKey;
                         allowedIPs = [ "${adminPeer.privateIP}/32" ];
                         endpoint = adminPeer.endpoint;
                         persistentKeepalive = 25;
