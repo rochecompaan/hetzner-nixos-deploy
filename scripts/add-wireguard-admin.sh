@@ -9,7 +9,7 @@ SOPS_CONFIG=".sops.yaml"
 
 # Function to show usage
 usage() {
-    echo "Usage: $0 --name NAME --endpoint ENDPOINT --public-key PUBLIC_KEY"
+    echo "Usage: $0 --name NAME --endpoint ENDPOINT --public-key PUBLIC_KEY --private-ip PRIVATE_IP"
     echo
     echo "Add an administrator's WireGuard configuration to the secrets file"
     echo
@@ -17,6 +17,7 @@ usage() {
     echo "  --name        Administrator name"
     echo "  --endpoint    WireGuard endpoint (e.g., domain or IP)"
     echo "  --public-key  Administrator's WireGuard public key"
+    echo "  --private-ip  Administrator's WireGuard private IP (e.g., 172.16.0.x)"
     exit 1
 }
 
@@ -52,6 +53,10 @@ while [[ $# -gt 0 ]]; do
         PUBLIC_KEY="$2"
         shift 2
         ;;
+        --private-ip)
+        PRIVATE_IP="$2"
+        shift 2
+        ;;
         *)
         usage
         ;;
@@ -59,13 +64,19 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Check if required arguments are provided
-if [ -z "${NAME:-}" ] || [ -z "${ENDPOINT:-}" ] || [ -z "${PUBLIC_KEY:-}" ]; then
+if [ -z "${NAME:-}" ] || [ -z "${ENDPOINT:-}" ] || [ -z "${PUBLIC_KEY:-}" ] || [ -z "${PRIVATE_IP:-}" ]; then
     usage
 fi
 
 # Validate public key format (base64, 44 characters)
 if ! [[ $PUBLIC_KEY =~ ^[A-Za-z0-9+/]{43}=$ ]]; then
     echo "Error: Invalid WireGuard public key format"
+    exit 1
+fi
+
+# Validate private IP format
+if ! [[ $PRIVATE_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+    echo "Error: Invalid IP address format"
     exit 1
 fi
 
@@ -87,7 +98,8 @@ jq 'if .admins == null then .admins = {} else . end' \
 jq --arg name "$NAME" \
    --arg endpoint "$ENDPOINT" \
    --arg pubkey "$PUBLIC_KEY" \
-   '.admins[$name] = {"endpoint": $endpoint, "publicKey": $pubkey}' \
+   --arg privateip "$PRIVATE_IP" \
+   '.admins[$name] = {"endpoint": $endpoint, "publicKey": $pubkey, "privateIP": $privateip}' \
    "${TEMP_FILE}" > "${TEMP_FILE}.new" && mv "${TEMP_FILE}.new" "${TEMP_FILE}"
 
 # Copy the unencrypted file to the target location
