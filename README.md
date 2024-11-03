@@ -77,15 +77,16 @@ following structure:
   "servers": {
     "<environment>": {
       "<server1>": {
-        "privateKey": "...",
-        "publicKey": "..."
+        "privateKey": "yENnAwrNBGQtjvHeK3Xn6lgdDXth9KVPchOuOHRKCUY=",
+        "publicKey": "KsQPTEVg8i6sK0sgY1aLdszhzgzr3I/EwMPiP8gt90A="
       }
     }
   },
   "admins": {
     "<admin-name>": {
-      "publicKey": "...",
-      "endpoint": "..." (optional)
+      "publicKey": "abc123...",
+      "endpoint": "username.duckdns.org",
+      "privateIP": "172.16.0.1"
     }
   }
 }
