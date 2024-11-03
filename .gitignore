@@ -2,3 +2,7 @@
 .aider*
 .env
 .venv
+# ignore files and directories used for development and testing
+secrets/
+systems/
+.sops.yaml
