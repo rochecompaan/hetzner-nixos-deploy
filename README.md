@@ -122,6 +122,14 @@ To use this repository in your project:
    }
    ```
 
+3. You can preview the generated NixOS configuration for a server:
+   ```bash
+   nix run .#show-server-config -- <hostname>
+   ```
+
+   This will output the complete NixOS configuration in JSON format, which can be
+   useful for debugging or verifying the configuration before deployment.
+
 ## Repository Structure
 
 ```
