@@ -116,11 +116,17 @@ To use this repository in your project:
          defaultGateway = "...";
        };
        authorizedKeys = [ "ssh-ed25519 ..." ];
+       # Optional: List of admin names from wireguard.json to include as WireGuard peers
+       adminNames = [ "alice" "bob" ];
      };
    in {
      nixosConfigurations.your-server = server;
    }
    ```
+
+   The `adminNames` parameter allows you to specify which admin users from your
+   `secrets/wireguard.json` should be added as WireGuard peers to this server.
+   These admins must first be added using the `add-wireguard-admin` script.
 
 3. You can preview the generated NixOS configuration for a server:
    ```bash
