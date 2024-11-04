@@ -188,8 +188,6 @@
           stdenv.cc.cc.lib
         ];
         shellHook = ''
-          export LD_LIBRARY_PATH=${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH
-
           VENV_DIR="$(pwd)/.venv"
           if [ -d "$VENV_DIR" ]; then
             echo "Skipping venv creation, '$VENV_DIR' already exists"
