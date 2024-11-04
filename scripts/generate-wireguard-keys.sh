@@ -64,34 +64,9 @@ jq --arg env "${ENVIRONMENT}" \
    'if .servers[$env] == null then .servers[$env] = {} else . end' \
    "${TEMP_FILE}" > "${TEMP_FILE}.new" && mv "${TEMP_FILE}.new" "${TEMP_FILE}"
 
-# Create a new environment object with only the specified servers
-NEW_ENV="{}"
+# Process each server
 for server in "$@"; do
-    if jq -e ".servers.${ENVIRONMENT}.${server}" "${TEMP_FILE}" >/dev/null 2>&1; then
-        echo "Keys already exist for ${server} in ${ENVIRONMENT}, skipping..."
-        # Copy existing server config to new environment
-        NEW_ENV=$(echo "${NEW_ENV}" | jq --arg server "${server}" \
-            --argjson config "$(jq ".servers.${ENVIRONMENT}.${server}" "${TEMP_FILE}")" \
-            '. + {($server): $config}')
-        continue
-    fi
-    
-    # Generate new keypair and add to NEW_ENV
-    keypair=$(generate_wireguard_keypair)
-    NEW_ENV=$(echo "${NEW_ENV}" | jq --arg server "${server}" \
-        --argjson keypair "${keypair}" \
-        '. + {($server): $keypair}')
-done
-
-# Update only the specified environment with the new server configs
-jq --arg env "${ENVIRONMENT}" \
-   --argjson newenv "${NEW_ENV}" \
-   '.servers[$env] = $newenv' \
-   "${TEMP_FILE}" > "${TEMP_FILE}.new" && mv "${TEMP_FILE}.new" "${TEMP_FILE}"
-
-# Generate keys for each server
-for server in "$@"; do
-    echo "Generating WireGuard keys for ${server} in ${ENVIRONMENT} environment..."
+    echo "Processing ${server} in ${ENVIRONMENT} environment..."
     
     # Check if keys already exist for this server in the environment
     if jq -e ".servers.${ENVIRONMENT}.${server}" "${TEMP_FILE}" >/dev/null 2>&1; then
@@ -99,13 +74,17 @@ for server in "$@"; do
         continue
     fi
     
-    # Generate new keypair and add to JSON
+    # Generate new keypair for this server
     keypair=$(generate_wireguard_keypair)
+    
+    # Update only this server's configuration while preserving others
     jq --arg env "${ENVIRONMENT}" \
        --arg server "${server}" \
        --argjson keypair "${keypair}" \
        '.servers[$env][$server] = $keypair' \
        "${TEMP_FILE}" > "${TEMP_FILE}.new" && mv "${TEMP_FILE}.new" "${TEMP_FILE}"
+    
+    echo "Generated new keys for ${server}"
 done
 
 # Copy the unencrypted file to the target location
