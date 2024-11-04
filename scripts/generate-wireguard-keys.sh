@@ -51,13 +51,42 @@ generate_wireguard_keypair() {
 # Initialize or read existing secrets file
 if [[ -f "${SECRETS_FILE}" ]]; then
     sops --decrypt "${SECRETS_FILE}" > "${TEMP_FILE}"
+    # Preserve admins section if it exists
+    if ! jq -e '.admins' "${TEMP_FILE}" >/dev/null 2>&1; then
+        jq '. + {"admins": {}}' "${TEMP_FILE}" > "${TEMP_FILE}.new" && mv "${TEMP_FILE}.new" "${TEMP_FILE}"
+    fi
 else
-    echo '{"servers": {}}' > "${TEMP_FILE}"
+    echo '{"servers": {}, "admins": {}}' > "${TEMP_FILE}"
 fi
 
-# Ensure environment structure exists
+# Ensure environment structure exists, preserving other environments
 jq --arg env "${ENVIRONMENT}" \
    'if .servers[$env] == null then .servers[$env] = {} else . end' \
+   "${TEMP_FILE}" > "${TEMP_FILE}.new" && mv "${TEMP_FILE}.new" "${TEMP_FILE}"
+
+# Create a new environment object with only the specified servers
+NEW_ENV="{}"
+for server in "$@"; do
+    if jq -e ".servers.${ENVIRONMENT}.${server}" "${TEMP_FILE}" >/dev/null 2>&1; then
+        echo "Keys already exist for ${server} in ${ENVIRONMENT}, skipping..."
+        # Copy existing server config to new environment
+        NEW_ENV=$(echo "${NEW_ENV}" | jq --arg server "${server}" \
+            --argjson config "$(jq ".servers.${ENVIRONMENT}.${server}" "${TEMP_FILE}")" \
+            '. + {($server): $config}')
+        continue
+    fi
+    
+    # Generate new keypair and add to NEW_ENV
+    keypair=$(generate_wireguard_keypair)
+    NEW_ENV=$(echo "${NEW_ENV}" | jq --arg server "${server}" \
+        --argjson keypair "${keypair}" \
+        '. + {($server): $keypair}')
+done
+
+# Update only the specified environment with the new server configs
+jq --arg env "${ENVIRONMENT}" \
+   --argjson newenv "${NEW_ENV}" \
+   '.servers[$env] = $newenv' \
    "${TEMP_FILE}" > "${TEMP_FILE}.new" && mv "${TEMP_FILE}.new" "${TEMP_FILE}"
 
 # Generate keys for each server
