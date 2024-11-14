@@ -114,27 +114,56 @@ To use this repository in your project:
 
    ```nix
    let
-     server = hetzner-nixos-deploy.lib.mkServer {
-       name = "your-server";
-       environment = "staging";
-       networking = {
-         interfaceName = "ens3";
-         publicIP = "...";
-         privateIP = "...";
-         defaultGateway = "...";
+     # Define your server configurations
+     serverConfigs = {
+       "server1" = {
+         name = "server1";
+         environment = "staging";
+         networking = {
+           interfaceName = "ens3";
+           publicIP = "...";
+           privateIP = "...";
+           defaultGateway = "...";
+         };
+         authorizedKeys = [ "ssh-ed25519 ..." ];
+         adminNames = [ "alice" "bob" ];
        };
-       authorizedKeys = [ "ssh-ed25519 ..." ];
-       # Optional: List of admin names from wireguard.json to include as WireGuard peers
-       adminNames = [ "alice" "bob" ];
+       "server2" = {
+         name = "server2";
+         environment = "production";
+         networking = {
+           interfaceName = "ens3";
+           publicIP = "...";
+           privateIP = "...";
+           defaultGateway = "...";
+         };
+         authorizedKeys = [ "ssh-ed25519 ..." ];
+         adminNames = [ "alice" ];
+       };
      };
    in {
-     nixosConfigurations.your-server = server;
+     # Map server configs to NixOS configurations
+     nixosConfigurations = builtins.mapAttrs
+       (name: config: nixpkgs.lib.nixosSystem {
+         system = "x86_64-linux";
+         modules = [
+           ./systems/x86_64-linux/${name}/hardware-configuration.nix
+           (self.lib.mkServer (config // { inherit serverConfigs; }))
+         ];
+       })
+       serverConfigs;
    }
    ```
 
-   The `adminNames` parameter allows you to specify which admin users from your
-   `secrets/wireguard.json` should be added as WireGuard peers to this server.
-   These admins must first be added using the `add-wireguard-admin` script.
+   Each server configuration requires:
+   - `name`: The hostname of your server
+   - `environment`: Environment name (e.g., "staging", "production")
+   - `networking`: Network configuration for the server
+   - `authorizedKeys`: List of SSH public keys for the `nix` user
+   - `adminNames`: Optional list of admin users from wireguard.json to add as WireGuard peers
+
+   The `serverConfigs` map is automatically passed to each server configuration to enable
+   WireGuard peer setup between servers.
 
 3. Test building a server configuration:
 
