@@ -23,7 +23,7 @@
           , environment
           , networking
           , authorizedKeys
-          , servers
+          , serverConfigs
           , adminNames ? [ ] # List of admin names to include from wireguard.json
           }:
           { config, lib, pkgs, ... }:
