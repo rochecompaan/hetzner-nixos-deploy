@@ -145,6 +145,49 @@ To use this repository in your project:
    This will output the complete NixOS configuration in JSON format, which can be
    useful for debugging or verifying the configuration before deployment.
 
+### Deploying the Configuration
+
+1. **Initial Deployment with nixos-anywhere**
+
+   After generating the configurations, deploy your NixOS system using nixos-anywhere:
+
+   ```bash
+   nix run github:nix-community/nixos-anywhere -- --flake .#<hostname> root@<server-ip>
+   ```
+
+   This will perform the initial installation of NixOS on your server according to your configuration.
+
+2. **Subsequent Updates with deploy-rs**
+
+   For ongoing maintenance and updates, you can use deploy-rs:
+
+   1. First, add deploy-rs to your flake inputs:
+      ```nix
+      {
+        inputs.deploy-rs.url = "github:serokell/deploy-rs";
+      }
+      ```
+
+   2. Add a deployment configuration to your flake:
+      ```nix
+      {
+        deploy.nodes.<hostname> = {
+          hostname = "<server-ip>";
+          profiles.system = {
+            user = "root";
+            path = deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.<hostname>;
+          };
+        };
+      }
+      ```
+
+   3. Deploy updates using:
+      ```bash
+      nix run github:serokell/deploy-rs -- .#<hostname>
+      ```
+
+   This method is faster than full reinstalls as it only updates changed components.
+
 ## Repository Structure
 
 ```
