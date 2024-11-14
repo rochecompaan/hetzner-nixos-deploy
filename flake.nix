@@ -129,14 +129,6 @@
           ];
           text = builtins.readFile ./scripts/add-wireguard-admin.sh;
         };
-
-        show-server-config = pkgs.writeShellApplication {
-          name = "show-server-config";
-          runtimeInputs = with pkgs; [
-            jq
-          ];
-          text = builtins.readFile ./scripts/show-server-config.sh;
-        };
       };
 
       apps.x86_64-linux = {
@@ -163,11 +155,6 @@
         add-wireguard-admin = {
           type = "app";
           program = "${self.packages.x86_64-linux.add-wireguard-admin}/bin/add-wireguard-admin";
-        };
-
-        show-server-config = {
-          type = "app";
-          program = "${self.packages.x86_64-linux.show-server-config}/bin/show-server-config";
         };
       };
 

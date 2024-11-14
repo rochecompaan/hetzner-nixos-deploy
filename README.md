@@ -29,6 +29,7 @@ be integrated into project-specific NixOS configurations.
 ### Initial Server Setup
 
 1. **Activate Rescue Mode**
+
    ```bash
    nix run .#activate-rescue-mode -- <server-ip> <hostname>
    ```
@@ -37,6 +38,7 @@ be integrated into project-specific NixOS configurations.
    for the server to boot into rescue mode before proceeding.
 
 2. **Generate Disk Configuration**
+
    ```bash
    nix run .#generate-disko-config -- <server-ip> <hostname>
    ```
@@ -45,6 +47,7 @@ be integrated into project-specific NixOS configurations.
    `systems/x86_64-linux/<hostname>/disko.nix` based on your server's hardware.
 
 3. **Generate Hardware Configuration**
+
    ```bash
    nix run .#generate-hardware-config -- <server-ip> <hostname>
    ```
@@ -55,6 +58,7 @@ be integrated into project-specific NixOS configurations.
 ### WireGuard Management
 
 1. **Generate WireGuard Keys**
+
    ```bash
    nix run .#generate-wireguard-keys -- <environment> <server1> [<server2> ...]
    ```
@@ -63,6 +67,7 @@ be integrated into project-specific NixOS configurations.
    `secrets/wireguard.json`.
 
 2. **Add WireGuard Admin**
+
    ```bash
    nix run .#add-wireguard-admin -- <admin-name> <public-key> [endpoint]
    ```
@@ -72,6 +77,7 @@ be integrated into project-specific NixOS configurations.
 
 The WireGuard configuration is stored in `secrets/wireguard.json` with the
 following structure:
+
 ```json
 {
   "servers": {
@@ -97,6 +103,7 @@ following structure:
 To use this repository in your project:
 
 1. Add it as a flake input:
+
    ```nix
    {
      inputs.hetzner-nixos-deploy.url = "github:your-org/hetzner-nixos-deploy";
@@ -104,6 +111,7 @@ To use this repository in your project:
    ```
 
 2. Use the provided `mkServer` function to create your server configurations:
+
    ```nix
    let
      server = hetzner-nixos-deploy.lib.mkServer {
@@ -128,9 +136,10 @@ To use this repository in your project:
    `secrets/wireguard.json` should be added as WireGuard peers to this server.
    These admins must first be added using the `add-wireguard-admin` script.
 
-3. You can preview the generated NixOS configuration for a server:
+3. Test building a server configuration:
+
    ```bash
-   nix run .#show-server-config -- <hostname>
+   nix build .#nixosConfigurations.your-server.config.system.build.toplevel
    ```
 
    This will output the complete NixOS configuration in JSON format, which can be
@@ -155,6 +164,7 @@ To use this repository in your project:
 ## System Configuration
 
 The base configuration (`modules/base.nix`) provides:
+
 - Network configuration with WireGuard VPN support
 - Firewall configuration (ports 22, 80, 443 open by default)
 - SOPS secrets management
@@ -167,11 +177,13 @@ The base configuration (`modules/base.nix`) provides:
 ## Development Shell
 
 A development shell with required tools is provided:
+
 ```bash
 nix develop
 ```
 
 This gives you access to:
+
 - `netcat` for network operations
 - `sops` for secrets management
 - `yq` and `jq` for YAML/JSON processing
