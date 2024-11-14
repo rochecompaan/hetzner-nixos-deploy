@@ -1,12 +1,19 @@
-{ lib, pkgs, config, ... }:
-
-{ networking
+{ lib
+, pkgs
+, config
+, networking
 , authorizedKeys
 , getWireguardPeers
 , hostname
+, environment
+, ...
 }:
 
 {
+  boot.swraid.mdadmConf = ''
+    MAILADDR nobody@nowhere
+  '';
+
   # Networking configuration
   networking = {
     hostName = hostname;
@@ -37,17 +44,25 @@
 
   # Secrets configuration - declare secrets for our key and all peer public keys
   sops = {
+    defaultSopsFile = ../secrets/wireguard.json;
     secrets = {
       "wireguard/${hostname}/privateKey" = {
-        sopsFile = ./secrets/wireguard.json;
+        path = "/run/secrets/wireguard/${hostname}/privateKey";
+        key = "servers/${environment}/${hostname}/privateKey";
       };
       "wireguard/${hostname}/publicKey" = {
-        sopsFile = ./secrets/wireguard.json;
+        path = "/run/secrets/wireguard/${hostname}/publicKey";
+        key = "servers/${environment}/${hostname}/publicKey";
       };
-    } // (builtins.listToAttrs (map (peer: {
-      name = "wireguard/${peer.name}/publicKey";
-      value = { sopsFile = ./secrets/wireguard.json; };
-    }) (getWireguardPeers null)));  # Pass null since we just need the peer names here
+    } // (builtins.listToAttrs (map
+      (peer: {
+        name = "wireguard/${peer.name}/publicKey";
+        value = {
+          path = "/run/secrets/wireguard/${peer.name}/publicKey";
+          key = "servers/${environment}/${peer.name}/publicKey";
+        };
+      })
+      (getWireguardPeers null))); # Pass null since we just need the peer names here
   };
 
   # User configuration
@@ -78,13 +93,22 @@
 
   # Enable nix flakes
   nix = {
-    package = pkgs.nixFlakes;
+    package = pkgs.nixVersions.stable;
     extraOptions = ''
       experimental-features = nix-command flakes
     '';
   };
 
   # System packages
+  # System state version
+  system.stateVersion = "24.11";
+
+  # Swap configuration
+  swapDevices = [{
+    device = "/swapfile";
+    size = 8196; # Size in MB (8GB)
+  }];
+
   environment.systemPackages = with pkgs; [
     vim
     git
