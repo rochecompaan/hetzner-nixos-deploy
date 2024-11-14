@@ -18,75 +18,67 @@
     {
       lib = {
         # Function to create a server configuration
-        mkServer = { 
-          name, 
-          environment, 
-          networking, 
-          authorizedKeys, 
-          servers,
-          adminNames ? [] # List of admin names to include from wireguard.json
-        }: 
-        let
-          wireguardConfig = builtins.fromJSON (builtins.readFile ./secrets/wireguard.json);
-          adminPeers = map 
-            (adminName: {
-              name = adminName;
-              publicKey = wireguardConfig.admins.${adminName}.publicKey;
-              endpoint = wireguardConfig.admins.${adminName}.endpoint;
-              privateIP = wireguardConfig.admins.${adminName}.privateIP;
-            })
-            adminNames;
-        in nixpkgs.lib.nixosSystem {
-          inherit system;
+        mkServer =
+          { name
+          , environment
+          , networking
+          , authorizedKeys
+          , servers
+          , adminNames ? [ ] # List of admin names to include from wireguard.json
+          }:
+          { config, lib, pkgs, ... }:
+          let
+            wireguardConfig = builtins.fromJSON (builtins.readFile ./secrets/wireguard.json);
+            adminPeers = map
+              (adminName: {
+                name = adminName;
+                publicKey = wireguardConfig.admins.${adminName}.publicKey;
+                endpoint = wireguardConfig.admins.${adminName}.endpoint;
+                privateIP = wireguardConfig.admins.${adminName}.privateIP;
+              })
+              adminNames;
+          in
+          {
+            nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 
-          modules = [
-            # Include instalation-specific module when installing
-            ({ config, ... }: {
-              nixpkgs.hostPlatform = system;
-            })
-            
-            # Standard system configuration
-            disko.nixosModules.disko
-            sops-nix.nixosModules.sops
-            ./systems/${system}/${name}/hardware-configuration.nix
-            ./systems/${system}/${name}/disko.nix
-            (import ./modules/base.nix)
-            {
-              _module.args = {
-                inherit authorizedKeys;
-                hostname = name;
-                inherit networking;
-                getWireguardPeers = config: 
-                  # Generate server peers
-                  let
-                    serverPeers = nixpkgs.lib.mapAttrsToList
-                      (peerName: peerCfg: {
-                        inherit peerName;
-                        publicKeyFile = if config == null 
-                          then null
-                          else config.sops.secrets."wireguard/${peerName}/publicKey".path;
-                        allowedIPs = [ "${peerCfg.networking.privateIP}/32" ];
-                        endpoint = "${peerCfg.networking.publicIP}:51820";
-                        persistentKeepalive = 25;
-                      })
-                      (nixpkgs.lib.filterAttrs (peerName: _: peerName != name) servers);
-                    
-                    # Generate admin peers
-                    adminPeersList = map 
-                      (adminPeer: {
-                        name = adminPeer.name;
-                        publicKey = adminPeer.publicKey;
-                        allowedIPs = [ "${adminPeer.privateIP}/32" ];
-                        endpoint = adminPeer.endpoint;
-                        persistentKeepalive = 25;
-                      })
-                      adminPeers;
-                  in
-                    serverPeers ++ adminPeersList;
-              };
-            }
-          ];
-        };
+            _module.args = {
+              inherit networking authorizedKeys environment;
+              hostname = name;
+              getWireguardPeers = config:
+                # Generate server peers
+                let
+                  serverPeers = nixpkgs.lib.mapAttrsToList
+                    (peerName: peerCfg: {
+                      name = peerName;
+                      publicKey = wireguardConfig.servers.${environment}.${peerName}.publicKey;
+                      allowedIPs = [ "${peerCfg.networking.privateIP}/32" ];
+                      endpoint = "${peerCfg.networking.publicIP}:51820";
+                      persistentKeepalive = 25;
+                    })
+                    (nixpkgs.lib.filterAttrs (peerName: _: peerName != name) serverConfigs);
+
+                  # Generate admin peers
+                  adminPeersList = map
+                    (adminPeer: {
+                      name = adminPeer.name;
+                      publicKey = adminPeer.publicKey;
+                      allowedIPs = [ "${adminPeer.privateIP}/32" ];
+                      endpoint = adminPeer.endpoint;
+                      persistentKeepalive = 25;
+                    })
+                    adminPeers;
+                in
+                serverPeers ++ adminPeersList;
+            };
+
+            imports = [
+              # Standard system configuration
+              disko.nixosModules.disko
+              sops-nix.nixosModules.sops
+              ./systems/x86_64-linux/${name}/disko.nix
+              ./modules/base.nix
+            ];
+          };
       };
 
       packages.x86_64-linux = {
@@ -198,7 +190,7 @@
 
           echo "Activating venv environment"
           source "$VENV_DIR/bin/activate"
-          '';
+        '';
       };
     };
 }
