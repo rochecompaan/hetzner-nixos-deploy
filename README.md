@@ -157,6 +157,14 @@ To use this repository in your project:
 
    This will perform the initial installation of NixOS on your server according to your configuration.
 
+   After deployment completes, test SSH access to your new server:
+   ```bash
+   # Wait a minute for the server to finish rebooting
+   ssh nix@<server-ip>
+   ```
+
+   If you can successfully log in as the `nix` user with your SSH key, the deployment was successful.
+
 2. **Subsequent Updates with deploy-rs**
 
    For ongoing maintenance and updates, you can use deploy-rs:
