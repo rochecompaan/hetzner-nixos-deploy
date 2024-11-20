@@ -1,4 +1,11 @@
 {
+  "admins": {
+    "roche": {
+      "endpoint": "rochecompaan.duckdns.org",
+      "publicKey": "mmvP9ED8Ww/EWCXwJUUyZszHMGUu0MbabCgwpZIVW0U=",
+      "privateIP": "172.16.0.201"
+    }
+  },
   "servers": {
     "mycity1": {
       "name": "mycity1",
