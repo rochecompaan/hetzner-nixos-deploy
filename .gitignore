@@ -6,3 +6,4 @@
 secrets/
 systems/
 .sops.yaml
+wireguard
