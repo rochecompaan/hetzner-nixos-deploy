@@ -3,15 +3,14 @@
 set -euo pipefail
 
 # Constants
-SECRETS_FILE="secrets/wireguard.json"
+CONFIG_FILE="wireguard/peers.json"
 TEMP_FILE=$(mktemp)
-SOPS_CONFIG=".sops.yaml"
 
 # Function to show usage
 usage() {
     echo "Usage: $0 --name NAME --endpoint ENDPOINT --public-key PUBLIC_KEY --private-ip PRIVATE_IP"
     echo
-    echo "Add an administrator's WireGuard configuration to the secrets file"
+    echo "Add an administrator's WireGuard configuration to the peers file"
     echo
     echo "Options:"
     echo "  --name        Administrator name"
@@ -22,19 +21,8 @@ usage() {
 }
 
 # Check if required tools are available
-if ! command -v sops &> /dev/null; then
-    echo "Error: sops is required but not installed"
-    exit 1
-fi
-
 if ! command -v jq &> /dev/null; then
-    echo "Error: jq is required but not installed"
-    exit 1
-fi
-
-# Check if SOPS config exists
-if [[ ! -f "${SOPS_CONFIG}" ]]; then
-    echo "Error: ${SOPS_CONFIG} not found. Please create a SOPS configuration first."
+    echo "Error: jq is required but not installed" >&2
     exit 1
 fi
 
@@ -70,22 +58,22 @@ fi
 
 # Validate public key format (base64, 44 characters)
 if ! [[ $PUBLIC_KEY =~ ^[A-Za-z0-9+/]{43}=$ ]]; then
-    echo "Error: Invalid WireGuard public key format"
+    echo "Error: Invalid WireGuard public key format" >&2
     exit 1
 fi
 
 # Validate private IP format
 if ! [[ $PRIVATE_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-    echo "Error: Invalid IP address format"
+    echo "Error: Invalid IP address format" >&2
     exit 1
 fi
 
-# Create secrets directory if it doesn't exist
-mkdir -p "$(dirname "${SECRETS_FILE}")"
+# Create necessary directory
+mkdir -p "$(dirname "${CONFIG_FILE}")"
 
-# Initialize or read existing secrets file
-if [[ -f "${SECRETS_FILE}" ]]; then
-    sops --decrypt "${SECRETS_FILE}" > "${TEMP_FILE}"
+# Initialize or read existing config file
+if [[ -f "${CONFIG_FILE}" ]]; then
+    cp "${CONFIG_FILE}" "${TEMP_FILE}"
 else
     echo '{"servers": {}, "admins": {}}' > "${TEMP_FILE}"
 fi
@@ -102,13 +90,11 @@ jq --arg name "$NAME" \
    '.admins[$name] = {"endpoint": $endpoint, "publicKey": $pubkey, "privateIP": $privateip}' \
    "${TEMP_FILE}" > "${TEMP_FILE}.new" && mv "${TEMP_FILE}.new" "${TEMP_FILE}"
 
-# Copy the unencrypted file to the target location
-cp "${TEMP_FILE}" "${SECRETS_FILE}"
-
-# Encrypt the file in place using sops
-sops --encrypt --in-place "${SECRETS_FILE}"
+# Save the file
+cp "${TEMP_FILE}" "${CONFIG_FILE}"
 
 # Clean up
 rm "${TEMP_FILE}"
 
-echo "Successfully added/updated WireGuard configuration for admin: $NAME"
+# Print completion message
+echo "Admin configuration saved to ${CONFIG_FILE}" >&2
