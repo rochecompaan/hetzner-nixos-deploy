@@ -9,7 +9,7 @@ REMOTE_USER="root"
 # Check if required variables are set
 if [ -z "$REMOTE_SERVER" ] || [ -z "$HOSTNAME" ]; then
     echo "Error: REMOTE_SERVER, and HOSTNAME must be set."
-    echo "Usage: gegenerate-disko-config.sh <server> <host>"
+    echo "Usage: gegenerate-hardware-config.sh <server> <host>"
     exit 1
 fi
 
