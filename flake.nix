@@ -121,6 +121,14 @@
           text = builtins.readFile ./scripts/generate-wireguard-keys.sh;
         };
 
+        generate-wireguard-config = pkgs.writeShellApplication {
+          name = "generate-wireguard-config";
+          runtimeInputs = with pkgs; [
+            jq
+          ];
+          text = builtins.readFile ./scripts/generate-wireguard-config.sh;
+        };
+
         add-wireguard-admin = pkgs.writeShellApplication {
           name = "add-wireguard-admin";
           runtimeInputs = with pkgs; [
@@ -150,6 +158,11 @@
         generate-wireguard-keys = {
           type = "app";
           program = "${self.packages.x86_64-linux.generate-wireguard-keys}/bin/generate-wireguard-keys";
+        };
+
+        generate-wireguard-config = {
+          type = "app";
+          program = "${self.packages.x86_64-linux.generate-wireguard-config}/bin/generate-wireguard-config";
         };
 
         add-wireguard-admin = {
