@@ -27,17 +27,6 @@
           , adminNames ? [ ] # List of admin names to include from wireguard.json
           }:
           { config, lib, pkgs, ... }:
-          let
-            wireguardConfig = builtins.fromJSON (builtins.readFile ./secrets/wireguard.json);
-            adminPeers = map
-              (adminName: {
-                name = adminName;
-                publicKey = wireguardConfig.admins.${adminName}.publicKey;
-                endpoint = wireguardConfig.admins.${adminName}.endpoint;
-                privateIP = wireguardConfig.admins.${adminName}.privateIP;
-              })
-              adminNames;
-          in
           {
             nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 
@@ -45,8 +34,8 @@
               inherit networking authorizedKeys environment;
               hostname = name;
               getWireguardPeers = config:
-                # Generate server peers
                 let
+                  # Generate server peers
                   serverPeers = nixpkgs.lib.mapAttrsToList
                     (peerName: peerCfg: {
                       name = peerName;
@@ -58,15 +47,15 @@
                     (nixpkgs.lib.filterAttrs (peerName: _: peerName != name) serverConfigs);
 
                   # Generate admin peers
-                  adminPeersList = map
-                    (adminPeer: {
-                      name = adminPeer.name;
-                      publicKey = adminPeer.publicKey;
-                      allowedIPs = [ "${adminPeer.privateIP}/32" ];
-                      endpoint = adminPeer.endpoint;
+                  adminPeersList = nixpkgs.lib.mapAttrsToList
+                    (adminName: adminCfg: {
+                      inherit (adminCfg) publicKey;
+                      name = adminName;
+                      allowedIPs = [ "${adminCfg.privateIP}/32" ];
+                      endpoint = "${adminCfg.endpoint}:51820";
                       persistentKeepalive = 25;
                     })
-                    adminPeers;
+                    wireguardConfig.admins;
                 in
                 serverPeers ++ adminPeersList;
             };
@@ -75,6 +64,7 @@
               # Standard system configuration
               disko.nixosModules.disko
               sops-nix.nixosModules.sops
+              ./systems/x86_64-linux/${name}/hardware-configuration.nix
               ./systems/x86_64-linux/${name}/disko.nix
               ./modules/base.nix
             ];

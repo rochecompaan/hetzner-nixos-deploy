@@ -8,12 +8,7 @@
 , environment
 , ...
 }:
-
 {
-  boot.swraid.mdadmConf = ''
-    MAILADDR nobody@nowhere
-  '';
-
   # Networking configuration
   networking = {
     hostName = hostname;
@@ -25,9 +20,27 @@
       }];
     };
     defaultGateway = networking.defaultGateway;
+
+    # Add Hetzner recurisve nameservers
+    nameservers = [
+      "185.12.64.1" # Hetzner DNS 1
+      "185.12.64.2" # Hetzner DNS 2
+    ];
+
     firewall = {
       enable = true;
+      # Ports open to the public internet
       allowedTCPPorts = [ 80 443 22 ];
+
+      # ports only open on Wireguard interface
+      # Once you are sure that the wireguard network is secure, you can limit
+      # port 22 to the wireguard interface
+
+      # interfaces."wg0".allowedTCPPorts = [
+      #   22
+      # ];
+
+      # Trust all traffic on the Wireguard interface
       trustedInterfaces = [ "wg0" ];
     };
   };
@@ -37,7 +50,7 @@
     wg0 = {
       ips = [ "${networking.privateIP}/24" ];
       listenPort = 51820;
-      privateKeyFile = config.sops.secrets."wireguard/${hostname}/privateKey".path;
+      privateKeyFile = config.sops.secrets."servers/${environment}/${hostname}/privateKey".path;
       peers = getWireguardPeers config;
     };
   };
@@ -46,23 +59,8 @@
   sops = {
     defaultSopsFile = ../secrets/wireguard.json;
     secrets = {
-      "wireguard/${hostname}/privateKey" = {
-        path = "/run/secrets/wireguard/${hostname}/privateKey";
-        key = "servers/${environment}/${hostname}/privateKey";
-      };
-      "wireguard/${hostname}/publicKey" = {
-        path = "/run/secrets/wireguard/${hostname}/publicKey";
-        key = "servers/${environment}/${hostname}/publicKey";
-      };
-    } // (builtins.listToAttrs (map
-      (peer: {
-        name = "wireguard/${peer.name}/publicKey";
-        value = {
-          path = "/run/secrets/wireguard/${peer.name}/publicKey";
-          key = "servers/${environment}/${peer.name}/publicKey";
-        };
-      })
-      (getWireguardPeers null))); # Pass null since we just need the peer names here
+      "servers/${environment}/${hostname}/privateKey" = { };
+    };
   };
 
   # User configuration
@@ -89,6 +87,18 @@
       KbdInteractiveAuthentication = false;
       PermitRootLogin = "no";
     };
+    # I'm not sure why this is necessary. I expected it to be auto generated.
+    hostKeys = [
+      {
+        bits = 4096;
+        path = "/etc/ssh/ssh_host_rsa_key";
+        type = "rsa";
+      }
+      {
+        path = "/etc/ssh/ssh_host_ed25519_key";
+        type = "ed25519";
+      }
+    ];
   };
 
   # Enable nix flakes
@@ -97,6 +107,7 @@
     extraOptions = ''
       experimental-features = nix-command flakes
     '';
+    settings.trusted-users = [ "root" "@wheel" ];
   };
 
   # System packages
