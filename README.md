@@ -204,10 +204,9 @@ To use this repository in your project:
    - `environment`: Environment name (e.g., "staging", "production")
    - `networking`: Network configuration for the server
    - `authorizedKeys`: List of SSH public keys for the `nix` user
-   - `adminNames`: Optional list of admin users from wireguard.json to add as WireGuard peers
 
-   The `serverConfigs` map is automatically passed to each server configuration to enable
-   WireGuard peer setup between servers.
+   The WireGuard peer configuration is automatically read from `wireguard/peers.json`,
+   which contains both server and admin peer information.
 
 3. Test building a server configuration:
 

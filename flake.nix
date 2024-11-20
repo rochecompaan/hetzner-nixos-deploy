@@ -23,41 +23,45 @@
           , environment
           , networking
           , authorizedKeys
-          , serverConfigs
-          , adminNames ? [ ] # List of admin names to include from wireguard.json
           }:
           { config, lib, pkgs, ... }:
+          let
+            # Read and parse the peers.json file
+            peersJson = builtins.fromJSON (builtins.readFile ./wireguard/peers.json);
+            
+            # Function to get server peers excluding self
+            getServerPeers = env: name:
+              nixpkgs.lib.mapAttrsToList
+                (peerName: peerConfig: {
+                  inherit (peerConfig) publicKey;
+                  name = peerName;
+                  allowedIPs = [ "${peerConfig.privateIP}/32" ];
+                  endpoint = "${peerConfig.endpoint}:51820";
+                  persistentKeepalive = 25;
+                })
+                (nixpkgs.lib.filterAttrs 
+                  (peerName: _: peerName != name)
+                  (peersJson.servers.${env} or {}));
+
+            # Function to get admin peers
+            getAdminPeers =
+              nixpkgs.lib.mapAttrsToList
+                (adminName: adminConfig: {
+                  inherit (adminConfig) publicKey;
+                  name = adminName;
+                  allowedIPs = [ "${adminConfig.privateIP}/32" ];
+                  endpoint = "${adminConfig.endpoint}:51820";
+                  persistentKeepalive = 25;
+                })
+                (peersJson.admins or {});
+          in
           {
             nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 
             _module.args = {
               inherit networking authorizedKeys environment;
               hostname = name;
-              getWireguardPeers = config:
-                let
-                  # Generate server peers
-                  serverPeers = nixpkgs.lib.mapAttrsToList
-                    (peerName: peerCfg: {
-                      name = peerName;
-                      publicKey = wireguardConfig.servers.${environment}.${peerName}.publicKey;
-                      allowedIPs = [ "${peerCfg.networking.privateIP}/32" ];
-                      endpoint = "${peerCfg.networking.publicIP}:51820";
-                      persistentKeepalive = 25;
-                    })
-                    (nixpkgs.lib.filterAttrs (peerName: _: peerName != name) serverConfigs);
-
-                  # Generate admin peers
-                  adminPeersList = nixpkgs.lib.mapAttrsToList
-                    (adminName: adminCfg: {
-                      inherit (adminCfg) publicKey;
-                      name = adminName;
-                      allowedIPs = [ "${adminCfg.privateIP}/32" ];
-                      endpoint = "${adminCfg.endpoint}:51820";
-                      persistentKeepalive = 25;
-                    })
-                    wireguardConfig.admins;
-                in
-                serverPeers ++ adminPeersList;
+              getWireguardPeers = _: (getServerPeers environment name) ++ (getAdminPeers);
             };
 
             imports = [
