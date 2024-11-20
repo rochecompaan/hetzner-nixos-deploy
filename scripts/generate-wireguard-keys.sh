@@ -112,5 +112,6 @@ sops --encrypt --in-place "${SECRETS_FILE}"
 rm "${TEMP_SECRETS}" "${TEMP_CONFIG}"
 
 # Print completion message to stderr
-echo "Done! Private keys have been stored and encrypted in ${SECRETS_FILE}" >&2
-echo "Public keys have been stored in ${CONFIG_FILE}" >&2
+echo "Keys generated and stored:" >&2
+echo "  • ${SECRETS_FILE} (encrypted)" >&2
+echo "  • ${CONFIG_FILE}" >&2
