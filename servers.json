@@ -1,62 +1,74 @@
 {
-	"servers": {
-		"mycity1": {
-			"name": "mycity1",
-			"environment": "staging",
-			"networking": {
-				"enp0s31f6": {
-					"publicIP": "78.46.68.136",
-					"defaultGateway": "78.46.68.129",
-					"subnet": 27
-				},
-				"wg0": {
-					"privateIP": "172.16.0.1"
-				}
-			}
-		},
-		"mycity2": {
-			"name": "mycity2",
-			"environment": "staging",
-			"networking": {
-				"publicIP": "136.243.173.222",
-				"privateIP": "172.16.0.2",
-				"defaultGateway": "136.243.173.193",
-				"interfaceName": "enp0s31f6",
-				"publicSubnet": 27
-			}
-		},
-		"mycity3": {
-			"name": "mycity3",
-			"environment": "staging",
-			"networking": {
-				"publicIP": "148.251.76.152",
-				"privateIP": "172.16.0.3",
-				"defaultGateway": "148.251.76.129",
-				"interfaceName": "enp0s31f6",
-				"publicSubnet": 27
-			}
-		},
-		"mycity-storage1": {
-			"name": "mycity-storage1",
-			"environment": "staging",
-			"networking": {
-				"publicIP": "195.201.174.179",
-				"privateIP": "172.16.0.4",
-				"defaultGateway": "195.201.174.161",
-				"interfaceName": "enp0s31f6",
-				"publicSubnet": 27
-			}
-		},
-		"mycity-storage2": {
-			"name": "mycity-storage2",
-			"environment": "staging",
-			"networking": {
-				"publicIP": "136.243.89.253",
-				"privateIP": "172.16.0.5",
-				"defaultGateway": "136.243.89.225",
-				"interfaceName": "enp0s31f6",
-				"publicSubnet": 27
-			}
-		}
-	}
+  "servers": {
+    "mycity1": {
+      "name": "mycity1",
+      "environment": "staging",
+      "networking": {
+        "enp0s31f6": {
+          "publicIP": "78.46.68.136",
+          "defaultGateway": "78.46.68.129",
+          "subnet": 27
+        },
+        "wg0": {
+          "privateIP": "172.16.0.1"
+        }
+      }
+    },
+    "mycity2": {
+      "name": "mycity2",
+      "environment": "staging",
+      "networking": {
+        "enp0s31f6": {
+          "publicIP": "136.243.173.222",
+          "defaultGateway": "136.243.173.193",
+          "subnet": 27
+        },
+        "wg0": {
+          "privateIP": "172.16.0.2"
+        }
+      }
+    },
+    "mycity3": {
+      "name": "mycity3",
+      "environment": "staging",
+      "networking": {
+        "enp0s31f6": {
+          "publicIP": "148.251.76.152",
+          "defaultGateway": "148.251.76.129",
+          "subnet": 27
+        },
+        "wg0": {
+          "privateIP": "172.16.0.3"
+        }
+      }
+    },
+    "mycity-storage1": {
+      "name": "mycity-storage1",
+      "environment": "staging",
+      "networking": {
+        "enp0s31f6": {
+          "publicIP": "195.201.174.179",
+          "defaultGateway": "195.201.174.161",
+          "subnet": 27
+        },
+        "wg0": {
+          "privateIP": "172.16.0.4"
+        }
+      }
+    },
+    "mycity-storage2": {
+      "name": "mycity-storage2",
+      "environment": "staging",
+      "networking": {
+        "enp0s31f6": {
+          "publicIP": "136.243.89.253",
+          "defaultGateway": "136.243.89.225",
+          "subnet": 27
+        },
+        "wg0": {
+          "privateIP": "172.16.0.5"
+        }
+      }
+    }
+  }
 }
