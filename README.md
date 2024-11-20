@@ -63,27 +63,49 @@ be integrated into project-specific NixOS configurations.
    nix run .#generate-wireguard-keys -- <environment> <server1> [<server2> ...]
    ```
 
-   This command generates private and public key pairs for servers and updates
-   `secrets/wireguard.json`.
+   This command generates private and public key pairs for servers and updates:
+   - `wireguard/private-keys.json` (encrypted with SOPS)
+   - `wireguard/peers.json` (public keys only)
 
 2. **Add WireGuard Admin**
 
    ```bash
-   nix run .#add-wireguard-admin -- <admin-name> <public-key> [endpoint]
+   nix run .#add-wireguard-admin -- --name NAME --endpoint ENDPOINT --public-key PUBLIC_KEY --private-ip PRIVATE_IP
    ```
 
-   Adds an admin to the WireGuard configuration with their public key and
-   optional endpoint.
+   Adds or updates an admin in the WireGuard configuration with their public key, endpoint, and private IP.
+   The script validates the input and checks for duplicate IPs and endpoints.
 
-The WireGuard configuration is stored in `secrets/wireguard.json` with the
-following structure:
+3. **Generate WireGuard Config**
 
+   ```bash
+   nix run .#generate-wireguard-config -- --private-key KEY --address IP
+   ```
+
+   Generates a WireGuard configuration file (`wireguard/wg0.conf`) for a peer using their private key
+   and IP address. The configuration includes all servers and admins from peers.json as peers.
+
+The WireGuard configuration is stored in two files:
+
+`wireguard/private-keys.json` (encrypted):
 ```json
 {
   "servers": {
     "<environment>": {
       "<server1>": {
-        "privateKey": "yENnAwrNBGQtjvHeK3Xn6lgdDXth9KVPchOuOHRKCUY=",
+        "privateKey": "yENnAwrNBGQtjvHeK3Xn6lgdDXth9KVPchOuOHRKCUY="
+      }
+    }
+  }
+}
+```
+
+`wireguard/peers.json`:
+```json
+{
+  "servers": {
+    "<environment>": {
+      "<server1>": {
         "publicKey": "KsQPTEVg8i6sK0sgY1aLdszhzgzr3I/EwMPiP8gt90A="
       }
     }
@@ -92,10 +114,26 @@ following structure:
     "<admin-name>": {
       "publicKey": "abc123...",
       "endpoint": "username.duckdns.org",
-      "privateIP": "172.16.0.1"
+      "privateIP": "172.16.0.2"
     }
   }
 }
+```
+
+The generated WireGuard config (`wg0.conf`) will look like:
+```ini
+[Interface]
+Address = 172.16.0.201/24
+MTU = 1200
+PrivateKey = 1111111111I6TxNdsBfyZJQYRNenVMoYUqrwaulUrVc=
+ListenPort = 51820
+
+# Peers within the group
+[Peer]
+PublicKey = VOP13f3YGm1JoSCZuqsr0kZ83OkFQEpKmBtr0Fp2mVc=
+AllowedIPs = 172.16.0.101/32
+Endpoint = 178.63.123.200:51820
+PersistentKeepalive = 25
 ```
 
 ## Integration
