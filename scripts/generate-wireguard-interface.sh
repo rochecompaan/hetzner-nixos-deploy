@@ -3,7 +3,6 @@ set -euo pipefail
 
 # Constants
 SERVERS_CONFIG="servers.json"
-PEERS_FILE="wireguard/peers.json"
 SECRETS_FILE="wireguard/private-keys.json"
 
 # Function to show usage
@@ -41,7 +40,7 @@ if [ -z "${ENVIRONMENT:-}" ] || [ -z "${NAME:-}" ]; then
 fi
 
 # Check if required files exist
-for file in "$SERVERS_CONFIG" "$PEERS_FILE" "$SECRETS_FILE"; do
+for file in "$SERVERS_CONFIG" "$SECRETS_FILE"; do
     if [[ ! -f "$file" ]]; then
         echo "Error: Required file $file not found" >&2
         exit 1
@@ -52,9 +51,16 @@ done
 mkdir -p "systems/x86_64-linux/$NAME"
 
 # Get server's private IP from servers config
-PRIVATE_IP=$(jq -r --arg name "$NAME" '.[$name].networking.privateIP' "$SERVERS_CONFIG")
+PRIVATE_IP=$(jq -r --arg name "$NAME" '.servers[$name].networking.wg0.privateIP' "$SERVERS_CONFIG")
 if [ "$PRIVATE_IP" == "null" ]; then
-    echo "Error: Server $NAME not found in $SERVERS_CONFIG" >&2
+    echo "Error: Server $NAME not found in $SERVERS_CONFIG or missing WireGuard configuration" >&2
+    exit 1
+fi
+
+# Get server's public IP for endpoint
+PUBLIC_IP=$(jq -r --arg name "$NAME" '.servers[$name].networking.enp0s31f6.publicIP' "$SERVERS_CONFIG")
+if [ "$PUBLIC_IP" == "null" ]; then
+    echo "Error: Server $NAME missing public IP configuration" >&2
     exit 1
 fi
 
@@ -79,15 +85,15 @@ cat > "systems/x86_64-linux/$NAME/wg0.nix" << EOF
 EOF
 
 # Add server peers (excluding self)
-jq -r --arg env "$ENVIRONMENT" --arg name "$NAME" \
-    '.servers[$env] | to_entries[] | select(.key != $name) | .value |
-    "      { # \(.key)\n" +
+jq -r --arg name "$NAME" \
+    '.servers | to_entries[] | select(.key != $name) | .value |
+    "      { # \(.name)\n" +
     "        publicKey = \"\(.publicKey)\";\n" +
-    "        allowedIPs = [ \"\(.privateIP)/32\" ];\n" +
-    "        endpoint = \"\(.endpoint):51820\";\n" +
+    "        allowedIPs = [ \"\(.networking.wg0.privateIP)/32\" ];\n" +
+    "        endpoint = \"\(.networking.enp0s31f6.publicIP):51820\";\n" +
     "        persistentKeepalive = 25;\n" +
     "      }"' \
-    "$PEERS_FILE" >> "systems/x86_64-linux/$NAME/wg0.nix"
+    "$SERVERS_CONFIG" >> "systems/x86_64-linux/$NAME/wg0.nix"
 
 # Add admin peers
 jq -r '.admins | to_entries[] | .key as $name | .value |
@@ -97,7 +103,7 @@ jq -r '.admins | to_entries[] | .key as $name | .value |
     "        endpoint = \"\(.endpoint):51820\";\n" +
     "        persistentKeepalive = 25;\n" +
     "      }"' \
-    "$PEERS_FILE" >> "systems/x86_64-linux/$NAME/wg0.nix"
+    "$SERVERS_CONFIG" >> "systems/x86_64-linux/$NAME/wg0.nix"
 
 # Close the configuration
 cat >> "systems/x86_64-linux/$NAME/wg0.nix" << EOF
