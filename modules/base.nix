@@ -3,7 +3,6 @@
 , config
 , networking
 , authorizedKeys
-, getWireguardPeers
 , hostname
 , environment
 , ...
@@ -42,24 +41,6 @@
 
       # Trust all traffic on the Wireguard interface
       trustedInterfaces = [ "wg0" ];
-    };
-  };
-
-  # Wireguard configuration
-  networking.wireguard.interfaces = {
-    wg0 = {
-      ips = [ "${networking.privateIP}/24" ];
-      listenPort = 51820;
-      privateKeyFile = config.sops.secrets."servers/${environment}/${hostname}/privateKey".path;
-      peers = getWireguardPeers config;
-    };
-  };
-
-  # Secrets configuration - declare secrets for our key and all peer public keys
-  sops = {
-    defaultSopsFile = ../secrets/wireguard.json;
-    secrets = {
-      "servers/${environment}/${hostname}/privateKey" = { };
     };
   };
 
