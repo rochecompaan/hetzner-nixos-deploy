@@ -57,6 +57,12 @@ be integrated into project-specific NixOS configurations.
 
 ### WireGuard Management
 
+The following scripts help set up and manage a WireGuard private network that
+enables secure communication between servers and allows administrators to
+securely access and manage the servers. The network uses private IP addresses in
+the 172.16.0.0/24 range, with servers and administrators each assigned unique
+addresses.
+
 1. **Generate WireGuard Keys**
 
    ```bash
