@@ -9,8 +9,8 @@ if [ $# -lt 2 ]; then
 fi
 
 # Constants
-SECRETS_FILE="secrets/wireguard.json"
-CONFIG_FILE="config/wireguard.json"
+SECRETS_FILE="wireguard/private-keys.json"
+CONFIG_FILE="wireguard/peers.json"
 TEMP_SECRETS=$(mktemp)
 TEMP_CONFIG=$(mktemp)
 SOPS_CONFIG=".sops.yaml"
@@ -79,9 +79,6 @@ for file in "${TEMP_SECRETS}" "${TEMP_CONFIG}"; do
        "${file}" > "${file}.new" && mv "${file}.new" "${file}"
 done
 
-# Start printing the public keys output
-echo "        servers.${ENVIRONMENT} = {"
-
 # Process each server
 for server in "$@"; do
     # Generate new keypair for this server
@@ -102,13 +99,7 @@ for server in "$@"; do
        --arg public_key "${public_key}" \
        '.servers[$env][$server] = {"publicKey": $public_key}' \
        "${TEMP_CONFIG}" > "${TEMP_CONFIG}.new" && mv "${TEMP_CONFIG}.new" "${TEMP_CONFIG}"
-    
-    # Print the public key in the requested format
-    echo "          \"${server}\".publicKey = \"${public_key}\";"
 done
-
-# Close the output block
-echo "        };"
 
 # Save the files
 cp "${TEMP_SECRETS}" "${SECRETS_FILE}"
