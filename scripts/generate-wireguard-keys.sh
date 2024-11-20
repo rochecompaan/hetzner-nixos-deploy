@@ -10,7 +10,9 @@ fi
 
 # Constants
 SECRETS_FILE="secrets/wireguard.json"
-TEMP_FILE=$(mktemp)
+CONFIG_FILE="config/wireguard.json"
+TEMP_SECRETS=$(mktemp)
+TEMP_CONFIG=$(mktemp)
 SOPS_CONFIG=".sops.yaml"
 
 # Get environment from first argument and shift arguments
@@ -34,8 +36,8 @@ if [[ ! -f "${SOPS_CONFIG}" ]]; then
     exit 1
 fi
 
-# Create secrets directory if it doesn't exist
-mkdir -p "$(dirname "${SECRETS_FILE}")"
+# Create necessary directories
+mkdir -p "$(dirname "${SECRETS_FILE}")" "$(dirname "${CONFIG_FILE}")"
 
 # Function to generate WireGuard keypair
 generate_wireguard_keypair() {
@@ -50,19 +52,32 @@ generate_wireguard_keypair() {
 
 # Initialize or read existing secrets file
 if [[ -f "${SECRETS_FILE}" ]]; then
-    sops --decrypt "${SECRETS_FILE}" > "${TEMP_FILE}"
+    sops --decrypt "${SECRETS_FILE}" > "${TEMP_SECRETS}"
     # Preserve admins section if it exists
-    if ! jq -e '.admins' "${TEMP_FILE}" >/dev/null 2>&1; then
-        jq '. + {"admins": {}}' "${TEMP_FILE}" > "${TEMP_FILE}.new" && mv "${TEMP_FILE}.new" "${TEMP_FILE}"
+    if ! jq -e '.admins' "${TEMP_SECRETS}" >/dev/null 2>&1; then
+        jq '. + {"admins": {}}' "${TEMP_SECRETS}" > "${TEMP_SECRETS}.new" && mv "${TEMP_SECRETS}.new" "${TEMP_SECRETS}"
     fi
 else
-    echo '{"servers": {}, "admins": {}}' > "${TEMP_FILE}"
+    echo '{"servers": {}, "admins": {}}' > "${TEMP_SECRETS}"
 fi
 
-# Ensure environment structure exists, preserving other environments
-jq --arg env "${ENVIRONMENT}" \
-   'if .servers[$env] == null then .servers[$env] = {} else . end' \
-   "${TEMP_FILE}" > "${TEMP_FILE}.new" && mv "${TEMP_FILE}.new" "${TEMP_FILE}"
+# Initialize or read existing config file
+if [[ -f "${CONFIG_FILE}" ]]; then
+    cp "${CONFIG_FILE}" "${TEMP_CONFIG}"
+    # Ensure basic structure exists
+    if ! jq -e '.servers' "${TEMP_CONFIG}" >/dev/null 2>&1; then
+        jq '. + {"servers": {}}' "${TEMP_CONFIG}" > "${TEMP_CONFIG}.new" && mv "${TEMP_CONFIG}.new" "${TEMP_CONFIG}"
+    fi
+else
+    echo '{"servers": {}, "admins": {}}' > "${TEMP_CONFIG}"
+fi
+
+# Ensure environment structure exists in both files
+for file in "${TEMP_SECRETS}" "${TEMP_CONFIG}"; do
+    jq --arg env "${ENVIRONMENT}" \
+       'if .servers[$env] == null then .servers[$env] = {} else . end' \
+       "${file}" > "${file}.new" && mv "${file}.new" "${file}"
+done
 
 # Start printing the public keys output
 echo "        servers.${ENVIRONMENT} = {"
@@ -74,12 +89,19 @@ for server in "$@"; do
     public_key=$(echo "${keypair}" | jq -r '.publicKey')
     private_key=$(echo "${keypair}" | jq -r '.privateKey')
     
-    # Update only this server's private key while preserving others
+    # Update private key in secrets file
     jq --arg env "${ENVIRONMENT}" \
        --arg server "${server}" \
        --arg private_key "${private_key}" \
        '.servers[$env][$server] = {"privateKey": $private_key}' \
-       "${TEMP_FILE}" > "${TEMP_FILE}.new" && mv "${TEMP_FILE}.new" "${TEMP_FILE}"
+       "${TEMP_SECRETS}" > "${TEMP_SECRETS}.new" && mv "${TEMP_SECRETS}.new" "${TEMP_SECRETS}"
+    
+    # Update public key in config file
+    jq --arg env "${ENVIRONMENT}" \
+       --arg server "${server}" \
+       --arg public_key "${public_key}" \
+       '.servers[$env][$server] = {"publicKey": $public_key}' \
+       "${TEMP_CONFIG}" > "${TEMP_CONFIG}.new" && mv "${TEMP_CONFIG}.new" "${TEMP_CONFIG}"
     
     # Print the public key in the requested format
     echo "          \"${server}\".publicKey = \"${public_key}\";"
@@ -88,14 +110,16 @@ done
 # Close the output block
 echo "        };"
 
-# Copy the unencrypted file to the target location
-cp "${TEMP_FILE}" "${SECRETS_FILE}"
+# Save the files
+cp "${TEMP_SECRETS}" "${SECRETS_FILE}"
+cp "${TEMP_CONFIG}" "${CONFIG_FILE}"
 
-# Encrypt the file in place using sops
+# Encrypt the secrets file
 sops --encrypt --in-place "${SECRETS_FILE}"
 
 # Clean up
-rm "${TEMP_FILE}"
+rm "${TEMP_SECRETS}" "${TEMP_CONFIG}"
 
-# Print completion message to stderr (so it doesn't interfere with the public key output)
+# Print completion message to stderr
 echo "Done! Private keys have been stored and encrypted in ${SECRETS_FILE}" >&2
+echo "Public keys have been stored in ${CONFIG_FILE}" >&2
