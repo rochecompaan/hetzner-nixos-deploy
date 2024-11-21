@@ -93,7 +93,8 @@ done
 
 # Save the files
 cp "${TEMP_CONFIG}" "${SERVERS_CONFIG}"
-sops --encrypt "${TEMP_SECRETS}" > "${SECRETS_FILE}"
+cp "${TEMP_SECRETS}" "${SECRETS_FILE}"
+sops --encrypt --in-place "${SECRETS_FILE}"
 
 # Clean up
 rm "${TEMP_SECRETS}" "${TEMP_CONFIG}"
