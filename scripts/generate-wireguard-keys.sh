@@ -1,23 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Show usage if insufficient arguments provided
-if [ $# -lt 2 ]; then
-    echo "Usage: $0 <environment> <server1> [server2 ...]" >&2
-    echo "Example: $0 staging web1 web2 db1" >&2
-    exit 1
-fi
-
 # Constants
+SERVERS_CONFIG="servers.json"
 SECRETS_FILE="wireguard/private-keys.json"
-CONFIG_FILE="wireguard/peers.json"
 TEMP_SECRETS=$(mktemp)
 TEMP_CONFIG=$(mktemp)
 SOPS_CONFIG=".sops.yaml"
-
-# Get environment from first argument and shift arguments
-ENVIRONMENT="$1"
-shift
 
 # Ensure required tools are available
 if ! command -v wg &> /dev/null; then
@@ -30,14 +19,21 @@ if ! command -v sops &> /dev/null; then
     exit 1
 fi
 
-# Check if SOPS config exists
-if [[ ! -f "${SOPS_CONFIG}" ]]; then
-    echo "Error: ${SOPS_CONFIG} not found. Please create a SOPS configuration first." >&2
+if ! command -v jq &> /dev/null; then
+    echo "Error: jq is required but not installed" >&2
     exit 1
 fi
 
+# Check if required files exist
+for file in "$SERVERS_CONFIG" "$SOPS_CONFIG"; do
+    if [[ ! -f "${file}" ]]; then
+        echo "Error: Required file ${file} not found" >&2
+        exit 1
+    fi
+done
+
 # Create necessary directories
-mkdir -p "$(dirname "${SECRETS_FILE}")" "$(dirname "${CONFIG_FILE}")"
+mkdir -p "$(dirname "${SECRETS_FILE}")"
 
 # Function to generate WireGuard keypair
 generate_wireguard_keypair() {
@@ -53,65 +49,56 @@ generate_wireguard_keypair() {
 # Initialize or read existing secrets file
 if [[ -f "${SECRETS_FILE}" ]]; then
     sops --decrypt "${SECRETS_FILE}" > "${TEMP_SECRETS}"
-    # Preserve admins section if it exists
-    if ! jq -e '.admins' "${TEMP_SECRETS}" >/dev/null 2>&1; then
-        jq '. + {"admins": {}}' "${TEMP_SECRETS}" > "${TEMP_SECRETS}.new" && mv "${TEMP_SECRETS}.new" "${TEMP_SECRETS}"
-    fi
 else
-    echo '{"servers": {}, "admins": {}}' > "${TEMP_SECRETS}"
+    echo '{"servers": {}}' > "${TEMP_SECRETS}"
 fi
 
-# Initialize or read existing config file
-if [[ -f "${CONFIG_FILE}" ]]; then
-    cp "${CONFIG_FILE}" "${TEMP_CONFIG}"
-    # Ensure basic structure exists
-    if ! jq -e '.servers' "${TEMP_CONFIG}" >/dev/null 2>&1; then
-        jq '. + {"servers": {}}' "${TEMP_CONFIG}" > "${TEMP_CONFIG}.new" && mv "${TEMP_CONFIG}.new" "${TEMP_CONFIG}"
-    fi
-else
-    echo '{"servers": {}, "admins": {}}' > "${TEMP_CONFIG}"
-fi
+# Copy servers config for modification
+cp "${SERVERS_CONFIG}" "${TEMP_CONFIG}"
 
-# Ensure environment structure exists in both files
-for file in "${TEMP_SECRETS}" "${TEMP_CONFIG}"; do
-    jq --arg env "${ENVIRONMENT}" \
-       'if .servers[$env] == null then .servers[$env] = {} else . end' \
-       "${file}" > "${file}.new" && mv "${file}.new" "${file}"
-done
+# Get list of servers from servers.json
+SERVERS=$(jq -r '.servers | keys[]' "${SERVERS_CONFIG}")
 
 # Process each server
-for server in "$@"; do
+for server in $SERVERS; do
+    echo "Processing server: $server" >&2
+    
     # Generate new keypair for this server
     keypair=$(generate_wireguard_keypair)
-    public_key=$(echo "${keypair}" | jq -r '.publicKey')
     private_key=$(echo "${keypair}" | jq -r '.privateKey')
+    public_key=$(echo "${keypair}" | jq -r '.publicKey')
+    
+    # Get server's public IP and private IP
+    public_ip=$(jq -r --arg name "$server" '.servers[$name].networking.enp0s31f6.publicIP' "${SERVERS_CONFIG}")
+    private_ip=$(jq -r --arg name "$server" '.servers[$name].networking.wg0.privateIP' "${SERVERS_CONFIG}")
     
     # Update private key in secrets file
-    jq --arg env "${ENVIRONMENT}" \
-       --arg server "${server}" \
-       --arg private_key "${private_key}" \
-       '.servers[$env][$server] = {"privateKey": $private_key}' \
+    jq --arg server "$server" \
+       --arg private_key "$private_key" \
+       '.servers[$server] = {"privateKey": $private_key}' \
        "${TEMP_SECRETS}" > "${TEMP_SECRETS}.new" && mv "${TEMP_SECRETS}.new" "${TEMP_SECRETS}"
     
-    # Update public key in config file
-    jq --arg env "${ENVIRONMENT}" \
-       --arg server "${server}" \
-       --arg public_key "${public_key}" \
-       '.servers[$env][$server] = {"publicKey": $public_key}' \
+    # Update server config with public key and endpoint
+    jq --arg server "$server" \
+       --arg public_key "$public_key" \
+       --arg public_ip "$public_ip" \
+       --arg private_ip "$private_ip" \
+       '.servers[$server].networking.wg0 += {
+          "publicKey": $public_key,
+          "endpoint": $public_ip,
+          "privateIP": $private_ip
+        }' \
        "${TEMP_CONFIG}" > "${TEMP_CONFIG}.new" && mv "${TEMP_CONFIG}.new" "${TEMP_CONFIG}"
 done
 
 # Save the files
-cp "${TEMP_SECRETS}" "${SECRETS_FILE}"
-cp "${TEMP_CONFIG}" "${CONFIG_FILE}"
-
-# Encrypt the secrets file
-sops --encrypt --in-place "${SECRETS_FILE}"
+cp "${TEMP_CONFIG}" "${SERVERS_CONFIG}"
+sops --encrypt "${TEMP_SECRETS}" > "${SECRETS_FILE}"
 
 # Clean up
 rm "${TEMP_SECRETS}" "${TEMP_CONFIG}"
 
-# Print completion message to stderr
-echo "Keys generated and stored:" >&2
-echo "  • ${SECRETS_FILE} (encrypted)" >&2
-echo "  • ${CONFIG_FILE}" >&2
+# Print completion message
+echo "WireGuard configuration completed:" >&2
+echo "  • Private keys stored in ${SECRETS_FILE} (encrypted)" >&2
+echo "  • Server configuration updated in ${SERVERS_CONFIG}" >&2
