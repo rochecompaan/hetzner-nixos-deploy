@@ -24,6 +24,29 @@ be integrated into project-specific NixOS configurations.
 - SOPS for secrets management
 - Basic understanding of NixOS configuration
 
+### SOPS Setup
+
+1. Create a `.sops.yaml` configuration file:
+   ```yaml
+   keys:
+     - &admin_alice age1...
+     - &admin_bob age1...
+   creation_rules:
+     - path_regex: wireguard/private-keys.json$
+       key_groups:
+       - age:
+         - *admin_alice
+         - *admin_bob
+   ```
+
+2. Generate age key:
+   ```bash
+   mkdir -p ~/.config/sops/age
+   age-keygen -o ~/.config/sops/age/keys.txt
+   ```
+
+3. Add your public key to `.sops.yaml`
+
 ## Usage
 
 ### Initial Server Setup
@@ -62,6 +85,59 @@ enables secure communication between servers and allows administrators to
 securely access and manage the servers. The network uses private IP addresses in
 the 172.16.0.0/24 range, with servers and administrators each assigned unique
 addresses.
+
+#### Complete WireGuard Setup Flow
+
+1. First, generate server keys for each environment:
+   ```bash
+   nix run .#generate-wireguard-keys -- staging server1 server2
+   nix run .#generate-wireguard-keys -- production server3 server4
+   ```
+
+2. Add administrator configurations:
+   ```bash
+   nix run .#add-wireguard-admin -- \
+     --name alice \
+     --endpoint alice.duckdns.org \
+     --public-key <alice-pubkey> \
+     --private-ip 172.16.0.10
+
+   nix run .#add-wireguard-admin -- \
+     --name bob \
+     --endpoint bob.duckdns.org \
+     --public-key <bob-pubkey> \
+     --private-ip 172.16.0.11
+   ```
+
+3. Generate WireGuard interface configurations:
+   ```bash
+   nix run .#generate-wireguard-interface -- staging server1
+   nix run .#generate-wireguard-interface -- staging server2
+   ```
+
+4. Verify configurations:
+   ```bash
+   # Check server configs
+   cat systems/x86_64-linux/server1/wg0.nix
+   
+   # Verify peer list
+   cat wireguard/peers.json
+   
+   # Check encrypted private keys
+   sops wireguard/private-keys.json
+   ```
+
+#### IP Address Allocation
+
+- Servers: 172.16.0.1-9 (production), 172.16.0.20-29 (staging)
+- Administrators: 172.16.0.10-19
+- Future use: 172.16.0.30-254
+
+#### Network Requirements
+
+- UDP port 51820 must be open on all peers
+- Each peer needs a stable endpoint (domain or IP)
+- MTU 1420 is recommended for most setups
 
 1. **Generate WireGuard Keys**
 
@@ -215,9 +291,17 @@ To use this repository in your project:
 
 ### Deploying the Configuration
 
-1. **Initial Deployment with nixos-anywhere**
+1. **Pre-deployment Checklist**
+   - [ ] Hardware configuration generated
+   - [ ] Disk configuration created
+   - [ ] WireGuard keys generated
+   - [ ] Server configuration in servers.json
+   - [ ] Network connectivity verified
+   - [ ] Backup of existing data (if applicable)
 
-   After generating the configurations, deploy your NixOS system using nixos-anywhere:
+2. **Initial Deployment with nixos-anywhere**
+
+   After completing the checklist, deploy your NixOS system using nixos-anywhere:
 
    ```bash
    nix run github:nix-community/nixos-anywhere -- --flake .#<hostname> root@<server-ip>
@@ -292,6 +376,59 @@ The base configuration (`modules/base.nix`) provides:
 - SSH server with secure defaults
 - Nix flakes support
 - Essential system packages (vim, git, wireguard-tools, sops)
+
+## Maintenance
+
+### Routine Tasks
+
+1. **System Updates**
+   ```bash
+   # Update flake inputs
+   nix flake update
+   
+   # Deploy updates
+   nix run github:serokell/deploy-rs -- .#<hostname>
+   ```
+
+2. **Key Rotation**
+   - Generate new WireGuard keys:
+     ```bash
+     nix run .#generate-wireguard-keys -- <environment> <server>
+     ```
+   - Update admin keys:
+     ```bash
+     nix run .#add-wireguard-admin -- --name <admin> --update-key
+     ```
+
+3. **Backup Strategy**
+   - Keep encrypted copies of:
+     - `wireguard/private-keys.json`
+     - `servers.json`
+     - Any custom configurations
+   - Store backups in a secure location
+   - Test restoration procedures regularly
+
+### Troubleshooting
+
+Common issues and solutions:
+
+1. **WireGuard Connection Issues**
+   - Verify UDP port 51820 is open
+   - Check endpoint accessibility
+   - Validate peer configurations
+   - Review system logs: `journalctl -u wireguard-wg0`
+
+2. **Deployment Failures**
+   - Verify network connectivity
+   - Check hardware configuration matches
+   - Review deployment logs
+   - Ensure all required secrets are available
+
+3. **System Access Issues**
+   - Verify SSH key permissions
+   - Check firewall rules
+   - Ensure WireGuard is running
+   - Test direct and VPN connectivity
 
 ## Development Shell
 
