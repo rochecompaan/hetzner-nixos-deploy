@@ -31,9 +31,11 @@ for NAME in $SERVERS; do
         continue
     fi
 
-    # Get server's public IP for endpoint
-    PUBLIC_IP=$(jq -r --arg name "$NAME" '.servers[$name].networking.enp0s31f6.publicIP' "$SERVERS_CONFIG")
-    if [ "$PUBLIC_IP" == "null" ]; then
+    # Get server's public IP and interface name by finding the interface with a public IP
+    PUBLIC_IP=$(jq -r --arg name "$NAME" '.servers[$name].networking | to_entries[] | select(.value.publicIP != null) | .value.publicIP' "$SERVERS_CONFIG")
+    INTERFACE_NAME=$(jq -r --arg name "$NAME" --arg public_ip "$PUBLIC_IP" '.servers[$name].networking | to_entries[] | select(.value.publicIP == $public_ip) | .key' "$SERVERS_CONFIG")
+
+    if [ -z "$INTERFACE_NAME" ] || [ "$PUBLIC_IP" == "null" ]; then
         echo "Warning: Server $NAME missing public IP configuration, skipping..." >&2
         continue
     fi
