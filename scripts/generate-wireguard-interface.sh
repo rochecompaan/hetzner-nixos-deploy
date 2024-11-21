@@ -5,40 +5,6 @@ set -euo pipefail
 SERVERS_CONFIG="servers.json"
 SECRETS_FILE="wireguard/private-keys.json"
 
-# Function to show usage
-usage() {
-    echo "Usage: $0 --environment ENV --name NAME" >&2
-    echo
-    echo "Generate WireGuard interface configuration for a server" >&2
-    echo
-    echo "Options:" >&2
-    echo "  --environment  Environment name (e.g., staging, production)" >&2
-    echo "  --name        Server name" >&2
-    exit 1
-}
-
-# Parse command line arguments
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --environment)
-        ENVIRONMENT="$2"
-        shift 2
-        ;;
-        --name)
-        NAME="$2"
-        shift 2
-        ;;
-        *)
-        usage
-        ;;
-    esac
-done
-
-# Check if required arguments are provided
-if [ -z "${ENVIRONMENT:-}" ] || [ -z "${NAME:-}" ]; then
-    usage
-fi
-
 # Check if required files exist
 for file in "$SERVERS_CONFIG" "$SECRETS_FILE"; do
     if [[ ! -f "$file" ]]; then
@@ -47,32 +13,33 @@ for file in "$SERVERS_CONFIG" "$SECRETS_FILE"; do
     fi
 done
 
-# Create systems directory if it doesn't exist
-mkdir -p "systems/x86_64-linux/$NAME"
+# Get list of servers from servers.json
+SERVERS=$(jq -r '.servers | keys[]' "$SERVERS_CONFIG")
 
-# Get server's private IP from servers config
-PRIVATE_IP=$(jq -r --arg name "$NAME" '.servers[$name].networking.wg0.privateIP' "$SERVERS_CONFIG")
-if [ "$PRIVATE_IP" == "null" ]; then
-    echo "Error: Server $NAME not found in $SERVERS_CONFIG or missing WireGuard configuration" >&2
-    exit 1
-fi
+# Process each server
+for NAME in $SERVERS; do
+    echo "Generating WireGuard configuration for $NAME..." >&2
 
-# Get server's public IP for endpoint
-PUBLIC_IP=$(jq -r --arg name "$NAME" '.servers[$name].networking.enp0s31f6.publicIP' "$SERVERS_CONFIG")
-if [ "$PUBLIC_IP" == "null" ]; then
-    echo "Error: Server $NAME missing public IP configuration" >&2
-    exit 1
-fi
+    # Create systems directory if it doesn't exist
+    OUTPUT_DIR="systems/x86_64-linux/$NAME"
+    mkdir -p "$OUTPUT_DIR"
 
-# Get server's private key from encrypted secrets
-PRIVATE_KEY=$(sops --decrypt "$SECRETS_FILE" | jq -r --arg env "$ENVIRONMENT" --arg name "$NAME" '.servers[$env][$name].privateKey')
-if [ "$PRIVATE_KEY" == "null" ]; then
-    echo "Error: Private key for $NAME not found in $SECRETS_FILE" >&2
-    exit 1
-fi
+    # Get server's private IP from servers config
+    PRIVATE_IP=$(jq -r --arg name "$NAME" '.servers[$name].networking.wg0.privateIP' "$SERVERS_CONFIG")
+    if [ "$PRIVATE_IP" == "null" ]; then
+        echo "Warning: Server $NAME missing WireGuard configuration, skipping..." >&2
+        continue
+    fi
 
-# Generate wg0.nix
-cat > "systems/x86_64-linux/$NAME/wg0.nix" << EOF
+    # Get server's public IP for endpoint
+    PUBLIC_IP=$(jq -r --arg name "$NAME" '.servers[$name].networking.enp0s31f6.publicIP' "$SERVERS_CONFIG")
+    if [ "$PUBLIC_IP" == "null" ]; then
+        echo "Warning: Server $NAME missing public IP configuration, skipping..." >&2
+        continue
+    fi
+
+    # Generate wg0.nix
+    cat > "$OUTPUT_DIR/wg0.nix" << EOF
 { config, lib, pkgs, ... }:
 
 {
@@ -84,8 +51,6 @@ cat > "systems/x86_64-linux/$NAME/wg0.nix" << EOF
     peers = [
 EOF
 
-# Add server and admin peers
-{
     # Add server peers (excluding self)
     jq -r --arg name "$NAME" \
         '.servers | to_entries[] | select(.key != $name) | .value |
@@ -95,7 +60,7 @@ EOF
         "        endpoint = \"\(.networking.enp0s31f6.publicIP):51820\";\n" +
         "        persistentKeepalive = 25;\n" +
         "      }"' \
-        "$SERVERS_CONFIG"
+        "$SERVERS_CONFIG" >> "$OUTPUT_DIR/wg0.nix"
 
     # Add admin peers
     jq -r '.admins | to_entries[] | .key as $name | .value |
@@ -105,11 +70,10 @@ EOF
         "        endpoint = \"\(.endpoint):51820\";\n" +
         "        persistentKeepalive = 25;\n" +
         "      }"' \
-        "$SERVERS_CONFIG"
-} >> "systems/x86_64-linux/$NAME/wg0.nix"
+        "$SERVERS_CONFIG" >> "$OUTPUT_DIR/wg0.nix"
 
-# Close the configuration
-cat >> "systems/x86_64-linux/$NAME/wg0.nix" << EOF
+    # Close the configuration
+    cat >> "$OUTPUT_DIR/wg0.nix" << EOF
     ];
   };
 
@@ -120,8 +84,10 @@ cat >> "systems/x86_64-linux/$NAME/wg0.nix" << EOF
       "servers/\${environment}/\${hostname}/privateKey" = { };
     };
   };
-
 }
 EOF
 
-echo "Generated WireGuard interface configuration in systems/x86_64-linux/$NAME/wg0.nix" >&2
+    echo "Generated WireGuard interface configuration in $OUTPUT_DIR/wg0.nix" >&2
+done
+
+echo "Completed generating WireGuard configurations for all servers." >&2
