@@ -78,6 +78,39 @@ be integrated into project-specific NixOS configurations.
    Creates a hardware configuration file at
    `systems/x86_64-linux/<hostname>/hardware-configuration.nix`.
 
+4. **Customize Hardware Configuration**
+
+   For servers with RAID or specific boot requirements, you may need to update the generated hardware configuration. Here's a typical example for a system with NVMe drives in RAID:
+
+   ```nix
+   boot = {
+     initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" ];
+     initrd.kernelModules = [ ];
+     kernelModules = [ "kvm-intel" ];
+     extraModulePackages = [ ];
+
+     # RAID configuration
+     swraid.mdadmConf = ''
+       MAILADDR nobody@nowhere
+     '';
+
+     # Boot loader configuration for multiple drives
+     loader = {
+       grub = {
+         enable = true;
+         devices = [ "/dev/nvme0n1" "/dev/nvme1n1" ];
+         efiSupport = true;
+       };
+     };
+   };
+   ```
+
+   Key customizations include:
+   - RAID notification settings via `swraid.mdadmConf`
+   - Multiple boot devices for redundancy
+   - EFI support configuration
+   - Required kernel modules for your hardware
+
 ### WireGuard Management
 
 The following scripts help set up and manage a WireGuard private network that
