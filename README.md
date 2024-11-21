@@ -154,57 +154,53 @@ To use this repository in your project:
    }
    ```
 
-2. Use the provided `mkServer` function to create your server configurations:
+2. Create a `servers.json` file to define your server configurations:
 
-   ```nix
-   let
-     # Define your server configurations
-     serverConfigs = {
-       "server1" = {
-         name = "server1";
-         environment = "staging";
-         networking = {
-           interfaceName = "ens3";
-           publicIP = "...";
-           privateIP = "...";
-           defaultGateway = "...";
-         };
-         authorizedKeys = [ "ssh-ed25519 ..." ];
-         adminNames = [ "alice" "bob" ];
-       };
-       "server2" = {
-         name = "server2";
-         environment = "production";
-         networking = {
-           interfaceName = "ens3";
-           publicIP = "...";
-           privateIP = "...";
-           defaultGateway = "...";
-         };
-         authorizedKeys = [ "ssh-ed25519 ..." ];
-         adminNames = [ "alice" ];
-       };
-     };
-   in {
-     # Map server configs to NixOS configurations
-     nixosConfigurations = builtins.mapAttrs
-       (name: config: nixpkgs.lib.nixosSystem {
-         system = "x86_64-linux";
-         modules = [
-           ./systems/x86_64-linux/${name}/hardware-configuration.nix
-           (self.lib.mkServer (config // { inherit serverConfigs; }))
-         ];
-       })
-       serverConfigs;
+   ```json
+   {
+     "servers": {
+       "staging": {
+         "server1": {
+           "name": "server1",
+           "networking": {
+             "interfaceName": "enp0s31f6",
+             "publicIP": "123.45.67.89",
+             "defaultGateway": "123.45.67.1",
+             "wg0": {
+               "privateIP": "172.16.0.1"
+             }
+           },
+           "authorizedKeys": [
+             "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI..."
+           ]
+         }
+       },
+       "production": {
+         "server2": {
+           "name": "server2", 
+           "networking": {
+             "interfaceName": "enp0s31f6",
+             "publicIP": "98.76.54.32",
+             "defaultGateway": "98.76.54.1",
+             "wg0": {
+               "privateIP": "172.16.0.2"
+             }
+           },
+           "authorizedKeys": [
+             "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI..."
+           ]
+         }
+       }
+     }
    }
    ```
 
    Each server configuration requires:
    - `name`: The hostname of your server
-   - `environment`: Environment name (e.g., "staging", "production")
-   - `networking`: Network configuration for the server
+   - `networking`: Network configuration including interface name, IPs and gateway
    - `authorizedKeys`: List of SSH public keys for the `nix` user
 
+   The server configurations are organized by environment (staging/production).
    The WireGuard peer configuration is automatically read from `wireguard/peers.json`,
    which contains both server and admin peer information.
 
