@@ -46,18 +46,34 @@ generate_wireguard_keypair() {
     echo "{\"privateKey\": \"${private_key}\", \"publicKey\": \"${public_key}\"}"
 }
 
+# Helper function to safely run jq
+safe_jq() {
+    local result
+    if ! result=$(jq "$@" 2>&1); then
+        echo "Error running jq command: $result" >&2
+        echo "Command was: jq $*" >&2
+        exit 1
+    fi
+    echo "$result"
+}
+
+echo "Reading/initializing secrets file..." >&2
 # Initialize or read existing secrets file
 if [[ -f "${SECRETS_FILE}" ]]; then
+    echo "Decrypting existing secrets file..." >&2
     sops --decrypt "${SECRETS_FILE}" > "${TEMP_SECRETS}"
 else
+    echo "Creating new secrets file..." >&2
     echo '{"servers": {}}' > "${TEMP_SECRETS}"
 fi
 
+echo "Copying servers config..." >&2
 # Copy servers config for modification
 cp "${SERVERS_CONFIG}" "${TEMP_CONFIG}"
 
+echo "Getting server list..." >&2
 # Get list of servers from servers.json
-SERVERS=$(jq -r '.servers | keys[]' "${SERVERS_CONFIG}")
+SERVERS=$(safe_jq -r '.servers | keys[]' "${SERVERS_CONFIG}")
 
 # Process each server
 for server in $SERVERS; do
@@ -72,14 +88,16 @@ for server in $SERVERS; do
     public_ip=$(jq -r --arg name "$server" '.servers[$name].networking.enp0s31f6.publicIP' "${SERVERS_CONFIG}")
     private_ip=$(jq -r --arg name "$server" '.servers[$name].networking.wg0.privateIP' "${SERVERS_CONFIG}")
     
+    echo "Updating secrets for server $server..." >&2
     # Update private key in secrets file
-    jq --arg server "$server" \
+    safe_jq --arg server "$server" \
        --arg private_key "$private_key" \
        '.servers[$server] = {"privateKey": $private_key}' \
        "${TEMP_SECRETS}" > "${TEMP_SECRETS}.new" && mv "${TEMP_SECRETS}.new" "${TEMP_SECRETS}"
     
+    echo "Updating config for server $server..." >&2
     # Update server config with public key and endpoint
-    jq --arg server "$server" \
+    safe_jq --arg server "$server" \
        --arg public_key "$public_key" \
        --arg public_ip "$public_ip" \
        --arg private_ip "$private_ip" \
