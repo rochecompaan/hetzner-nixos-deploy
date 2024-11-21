@@ -79,7 +79,7 @@ cat > "systems/x86_64-linux/$NAME/wg0.nix" << EOF
   networking.wg-quick.interfaces.wg0 = {
     address = [ "${PRIVATE_IP}/24" ];
     listenPort = 51820;
-    privateKey = "\${config.sops.secrets.\"wireguard/\${config.networking.hostName}/private-key\".path}";
+    privateKeyFile = config.sops.secrets."servers/\${environment}/\${hostname}/privateKey".path;
 
     peers = [
 EOF
@@ -114,10 +114,13 @@ cat >> "systems/x86_64-linux/$NAME/wg0.nix" << EOF
   };
 
   # SOPS configuration for WireGuard private key
-  sops.secrets."wireguard/\${config.networking.hostName}/private-key" = {
-    sopsFile = ../../../secrets/\${config.networking.hostName}/\${config.deployment.environment}/secrets.yaml;
-    restartUnits = [ "wg-quick-wg0.service" ];
+  sops = {
+    defaultSopsFile = ../wireguard/private-keys.json;
+    secrets = {
+      "servers/\${environment}/\${hostname}/privateKey" = { };
+    };
   };
+
 }
 EOF
 
