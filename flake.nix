@@ -25,43 +25,12 @@
           , authorizedKeys
           }:
           { config, lib, pkgs, ... }:
-          let
-            # Read and parse the peers.json file
-            peersJson = builtins.fromJSON (builtins.readFile ./wireguard/peers.json);
-            
-            # Function to get server peers excluding self
-            getServerPeers = env: name:
-              nixpkgs.lib.mapAttrsToList
-                (peerName: peerConfig: {
-                  inherit (peerConfig) publicKey;
-                  name = peerName;
-                  allowedIPs = [ "${peerConfig.privateIP}/32" ];
-                  endpoint = "${peerConfig.endpoint}:51820";
-                  persistentKeepalive = 25;
-                })
-                (nixpkgs.lib.filterAttrs 
-                  (peerName: _: peerName != name)
-                  (peersJson.servers.${env} or {}));
-
-            # Function to get admin peers
-            getAdminPeers =
-              nixpkgs.lib.mapAttrsToList
-                (adminName: adminConfig: {
-                  inherit (adminConfig) publicKey;
-                  name = adminName;
-                  allowedIPs = [ "${adminConfig.privateIP}/32" ];
-                  endpoint = "${adminConfig.endpoint}:51820";
-                  persistentKeepalive = 25;
-                })
-                (peersJson.admins or {});
-          in
           {
             nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 
             _module.args = {
               inherit networking authorizedKeys environment;
               hostname = name;
-              getWireguardPeers = _: (getServerPeers environment name) ++ (getAdminPeers);
             };
 
             imports = [
