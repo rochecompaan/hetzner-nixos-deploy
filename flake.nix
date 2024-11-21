@@ -39,6 +39,7 @@
               sops-nix.nixosModules.sops
               ./systems/x86_64-linux/${name}/hardware-configuration.nix
               ./systems/x86_64-linux/${name}/disko.nix
+              ./systems/x86_64-linux/${name}/wg0.nix
               ./modules/base.nix
             ];
           };
