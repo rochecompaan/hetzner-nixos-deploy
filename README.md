@@ -153,8 +153,13 @@ Network Requirements:
      --private-ip 172.16.0.10
    ```
 
-3. Verify configurations:
+3. Configure SSH Access:
    ```bash
+   # Add to ~/.ssh/config:
+   Host mycity-*
+     IdentityFile ~/.ssh/mycity_ed25519
+     User nix
+     
    # Check server configs
    cat systems/x86_64-linux/server1/wg0.nix
    
