@@ -6,7 +6,7 @@ be integrated into project-specific NixOS configurations.
 
 ## Features
 
-- Automated rescue mode activation for Hetzner servers
+- Easy activation or rescue mode for Hetzner servers
 - Hardware configuration generation
 - Disk partitioning configuration using disko
 - WireGuard key management and peer configuration
