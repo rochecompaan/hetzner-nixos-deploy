@@ -4,6 +4,32 @@ A collection of NixOS modules and utilities for deploying and managing bare
 metal servers on Hetzner. This repository provides reusable components that can
 be integrated into project-specific NixOS configurations.
 
+## Quick Start Summary
+
+1. **Initial Setup**
+   - Configure SOPS encryption
+   - Set up Hetzner Robot credentials
+
+2. **Server Discovery**
+   - Generate `servers.json` with server details
+   - Configure network settings automatically
+
+3. **Hardware Setup**
+   - Boot server into rescue mode
+   - Generate disk (disko) configuration
+   - Generate hardware configuration
+
+4. **Network Setup**
+   - Configure SSH access with project keys
+   - Generate WireGuard keys for all servers
+   - Set up WireGuard mesh network
+
+5. **Deployment**
+   - Initial deployment with nixos-anywhere
+   - Subsequent updates with deploy-rs
+
+For detailed instructions, follow the setup phases below.
+
 ## Features
 
 - Easy activation or rescue mode for Hetzner servers
