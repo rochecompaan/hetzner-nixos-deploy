@@ -138,10 +138,10 @@ Network Requirements:
 ### 5. Access Management
 
 1. SSH Key Management:
-   Add public keys to `modules/authorized_keys/`:
+   Add public keys to `authorized_keys/`:
    ```bash
    # Example: Add user's key
-   echo "ssh-ed25519 AAAAC3..." > modules/authorized_keys/user.pub
+   echo "ssh-ed25519 AAAAC3..." > authorized_keys/user.pub
    ```
 
 2. WireGuard Admin Access:
@@ -157,9 +157,6 @@ Network Requirements:
    ```bash
    # Check server configs
    cat systems/x86_64-linux/server1/wg0.nix
-   
-   # Verify peer list
-   cat wireguard/peers.json
    
    # Check encrypted private keys
    sops wireguard/private-keys.json
