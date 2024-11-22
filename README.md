@@ -17,16 +17,17 @@ be integrated into project-specific NixOS configurations.
   - User management
   - Common system packages
 
-## Prerequisites
+## Setup Phases
 
-- Nix with flakes enabled
-- A Hetzner server
-- SOPS for secrets management
-- Basic understanding of NixOS configuration
+### 1. Initial Setup
 
-### SOPS Setup
+1. Prerequisites
+   - Nix with flakes enabled
+   - A Hetzner server
+   - SOPS for secrets management
+   - Basic understanding of NixOS configuration
 
-1. Create a `.sops.yaml` configuration file:
+2. SOPS Configuration
    ```yaml
    keys:
      - &admin_alice age1...
@@ -39,48 +40,50 @@ be integrated into project-specific NixOS configurations.
          - *admin_bob
    ```
 
-2. Generate age key:
+   Generate age key:
    ```bash
    mkdir -p ~/.config/sops/age
    age-keygen -o ~/.config/sops/age/keys.txt
    ```
 
-3. Add your public key to `.sops.yaml`
+   Add your public key to `.sops.yaml`
 
-## Usage
+### 2. Server Discovery & Configuration
 
-### Initial Server Setup
+1. Create Hetzner Robot credentials file:
+   ```bash
+   echo '{"hetzner_robot_username": "your-username", "hetzner_robot_password": "your-password"}' | sops -e > secrets/hetzner.json
+   ```
 
-1. **Activate Rescue Mode**
+2. Generate server configurations:
+   ```bash
+   # Generate for all servers
+   nix run .#generate-server-config
 
+   # Or for specific servers
+   nix run .#generate-server-config -- "mycity"
+   ```
+   This creates `servers.json` with network settings and WireGuard IPs.
+
+### 3. Hardware Setup
+
+1. Activate rescue mode:
    ```bash
    nix run .#activate-rescue-mode -- <server-ip> <hostname>
    ```
 
-   This script activates rescue mode on your Hetzner server and reboots it. Wait
-   for the server to boot into rescue mode before proceeding.
-
-2. **Generate Disk Configuration**
-
+2. Generate disk configuration:
    ```bash
    nix run .#generate-disko-config -- <server-ip> <hostname>
    ```
 
-   Creates a disko configuration file at
-   `systems/x86_64-linux/<hostname>/disko.nix` based on your server's hardware.
-
-3. **Generate Hardware Configuration**
-
+3. Generate hardware configuration:
    ```bash
    nix run .#generate-hardware-config -- <server-ip> <hostname>
    ```
 
-   Creates a hardware configuration file at
-   `systems/x86_64-linux/<hostname>/hardware-configuration.nix`.
-
-4. **Customize Hardware Configuration**
-
-   For servers with RAID or specific boot requirements, you may need to update the generated hardware configuration. Here's a typical example for a system with NVMe drives in RAID:
+4. Customize Hardware Configuration (if needed):
+   For servers with RAID or specific boot requirements:
 
    ```nix
    boot = {
@@ -105,50 +108,52 @@ be integrated into project-specific NixOS configurations.
    };
    ```
 
-   Key customizations include:
-   - RAID notification settings via `swraid.mdadmConf`
-   - Multiple boot devices for redundancy
-   - EFI support configuration
-   - Required kernel modules for your hardware
+### 4. Network Configuration
 
-### WireGuard Management
-
-The following scripts help set up and manage a WireGuard private network that
-enables secure communication between servers and allows administrators to
-securely access and manage the servers. The network uses private IP addresses in
-the 172.16.0.0/24 range, with servers and administrators each assigned unique
-addresses.
-
-#### Complete WireGuard Setup Flow
-
-1. First, generate server keys for each environment:
+1. Generate WireGuard keys:
    ```bash
+   # For staging environment
    nix run .#generate-wireguard-keys -- staging server1 server2
+   
+   # For production environment
    nix run .#generate-wireguard-keys -- production server3 server4
    ```
 
-2. Add administrator configurations:
+2. Generate WireGuard interface configurations:
+   ```bash
+   nix run .#generate-wireguard-interface -- staging server1
+   nix run .#generate-wireguard-interface -- staging server2
+   ```
+
+IP Address Allocation:
+- Servers: 172.16.0.1-9 (production), 172.16.0.20-29 (staging)
+- Administrators: 172.16.0.10-19
+- Future use: 172.16.0.30-254
+
+Network Requirements:
+- UDP port 51820 must be open on all peers
+- Each peer needs a stable endpoint (domain or IP)
+- MTU 1420 is recommended for most setups
+
+### 5. Access Management
+
+1. SSH Key Management:
+   Add public keys to `modules/authorized_keys/`:
+   ```bash
+   # Example: Add user's key
+   echo "ssh-ed25519 AAAAC3..." > modules/authorized_keys/user.pub
+   ```
+
+2. WireGuard Admin Access:
    ```bash
    nix run .#add-wireguard-admin -- \
      --name alice \
      --endpoint alice.duckdns.org \
      --public-key <alice-pubkey> \
      --private-ip 172.16.0.10
-
-   nix run .#add-wireguard-admin -- \
-     --name bob \
-     --endpoint bob.duckdns.org \
-     --public-key <bob-pubkey> \
-     --private-ip 172.16.0.11
    ```
 
-3. Generate WireGuard interface configurations:
-   ```bash
-   nix run .#generate-wireguard-interface -- staging server1
-   nix run .#generate-wireguard-interface -- staging server2
-   ```
-
-4. Verify configurations:
+3. Verify configurations:
    ```bash
    # Check server configs
    cat systems/x86_64-linux/server1/wg0.nix
@@ -160,181 +165,9 @@ addresses.
    sops wireguard/private-keys.json
    ```
 
-#### IP Address Allocation
+### 6. Deployment
 
-- Servers: 172.16.0.1-9 (production), 172.16.0.20-29 (staging)
-- Administrators: 172.16.0.10-19
-- Future use: 172.16.0.30-254
-
-#### Network Requirements
-
-- UDP port 51820 must be open on all peers
-- Each peer needs a stable endpoint (domain or IP)
-- MTU 1420 is recommended for most setups
-
-1. **Generate WireGuard Keys**
-
-   ```bash
-   nix run .#generate-wireguard-keys -- <environment> <server1> [<server2> ...]
-   ```
-
-   This command generates private and public key pairs for servers and updates:
-   - `wireguard/private-keys.json` (encrypted with SOPS)
-   - `wireguard/peers.json` (public keys only)
-
-2. **Add WireGuard Admin**
-
-   ```bash
-   nix run .#add-wireguard-admin -- --name NAME --endpoint ENDPOINT --public-key PUBLIC_KEY --private-ip PRIVATE_IP
-   ```
-
-   Adds or updates an admin in the WireGuard configuration with their public key, endpoint, and private IP.
-   The script validates the input and checks for duplicate IPs and endpoints.
-
-3. **Generate WireGuard Config**
-
-   ```bash
-   nix run .#generate-wireguard-config -- --private-key KEY --address IP
-   ```
-
-   Generates a WireGuard configuration file (`wireguard/wg0.conf`) for a peer using their private key
-   and IP address. The configuration includes all servers and admins from peers.json as peers.
-
-The WireGuard configuration is stored in two files:
-
-`wireguard/private-keys.json` (encrypted):
-```json
-{
-  "servers": {
-    "<environment>": {
-      "<server1>": {
-        "privateKey": "yENnAwrNBGQtjvHeK3Xn6lgdDXth9KVPchOuOHRKCUY="
-      }
-    }
-  }
-}
-```
-
-`wireguard/peers.json`:
-```json
-{
-  "servers": {
-    "<environment>": {
-      "<server1>": {
-        "publicKey": "KsQPTEVg8i6sK0sgY1aLdszhzgzr3I/EwMPiP8gt90A="
-      }
-    }
-  },
-  "admins": {
-    "<admin-name>": {
-      "publicKey": "abc123...",
-      "endpoint": "username.duckdns.org",
-      "privateIP": "172.16.0.2"
-    }
-  }
-}
-```
-
-The generated WireGuard config (`wg0.conf`) will look like:
-```ini
-[Interface]
-Address = 172.16.0.201/24
-MTU = 1200
-PrivateKey = 1111111111I6TxNdsBfyZJQYRNenVMoYUqrwaulUrVc=
-ListenPort = 51820
-
-# Peers within the group
-[Peer]
-PublicKey = VOP13f3YGm1JoSCZuqsr0kZ83OkFQEpKmBtr0Fp2mVc=
-AllowedIPs = 172.16.0.101/32
-Endpoint = 178.63.123.200:51820
-PersistentKeepalive = 25
-```
-
-## Integration
-
-To use this repository in your project:
-
-1. Add it as a flake input:
-
-   ```nix
-   {
-     inputs.hetzner-nixos-deploy.url = "github:your-org/hetzner-nixos-deploy";
-   }
-   ```
-
-2. Generate the `servers.json` file using the Hetzner Robot API:
-
-   ```bash
-   # First, create an encrypted secrets file with your Hetzner Robot credentials
-   echo '{"hetzner_robot_username": "your-username", "hetzner_robot_password": "your-password"}' | sops -e > secrets/hetzner.json
-
-   # Generate servers.json for all servers
-   nix run .#generate-server-config
-
-   # Or generate for servers matching a specific pattern
-   nix run .#generate-server-config -- "mycity"
-   ```
-
-   This will create a `servers.json` file with all your registered servers from Hetzner Robot. The script:
-   - Fetches server details from the Hetzner Robot API
-   - Configures network settings based on server IP information
-   - Assigns sequential WireGuard IPs in the 172.16.0.0/24 range
-   - Sets up default interface names and gateway IPs
-
-   The generated file will look like:
-   ```json
-   {
-     "servers": {
-       "staging": {
-         "server1": {
-           "name": "server1",
-           "networking": {
-             "interfaceName": "enp0s31f6",
-             "publicIP": "123.45.67.89",
-             "defaultGateway": "123.45.67.1",
-             "wg0": {
-               "privateIP": "172.16.0.1"
-             }
-           }
-         }
-       }
-     }
-   }
-   ```
-
-   You can then customize this generated configuration as needed.
-
-   Each server configuration requires:
-   - `name`: The hostname of your server
-   - `networking`: Network configuration including interface name, IPs and gateway
-
-   The server configurations are organized by environment (staging/production).
-
-3. Configure SSH authorized keys:
-   
-   SSH keys are managed through individual files in the `modules/authorized_keys` 
-   directory. Each file should contain one public key and be named descriptively 
-   (e.g., `alice.pub`, `bob.pub`). The system automatically reads all files from 
-   this directory and adds them as authorized keys for the `nix` user.
-
-4. Configure WireGuard peers:
-   
-   The WireGuard peer configuration is automatically read from `wireguard/peers.json`,
-   which contains both server and admin peer information.
-
-5. Test building a server configuration:
-
-   ```bash
-   nix build .#nixosConfigurations.your-server.config.system.build.toplevel
-   ```
-
-   This will output the complete NixOS configuration in JSON format, which can be
-   useful for debugging or verifying the configuration before deployment.
-
-### Deploying the Configuration
-
-1. **Pre-deployment Checklist**
+1. Pre-deployment Checklist:
    - [ ] Hardware configuration generated
    - [ ] Disk configuration created
    - [ ] WireGuard keys generated
@@ -342,54 +175,62 @@ To use this repository in your project:
    - [ ] Network connectivity verified
    - [ ] Backup of existing data (if applicable)
 
-2. **Initial Deployment with nixos-anywhere**
-
-   After completing the checklist, deploy your NixOS system using nixos-anywhere:
-
+2. Initial Deployment:
    ```bash
    nix run github:nix-community/nixos-anywhere -- --flake .#<hostname> root@<server-ip>
    ```
 
-   This will perform the initial installation of NixOS on your server according to your configuration.
-
-   After deployment completes, test SSH access to your new server:
+   After deployment:
    ```bash
    # Wait a minute for the server to finish rebooting
    ssh nix@<server-ip>
    ```
 
-   If you can successfully log in as the `nix` user with your SSH key, the deployment was successful.
+3. Subsequent Updates:
+   Add deploy-rs to your flake:
+   ```nix
+   {
+     inputs.deploy-rs.url = "github:serokell/deploy-rs";
+   }
+   ```
 
-2. **Subsequent Updates with deploy-rs**
+   Deploy updates:
+   ```bash
+   nix run github:serokell/deploy-rs -- .#<hostname>
+   ```
 
-   For ongoing maintenance and updates, you can use deploy-rs:
+### 7. Maintenance
 
-   1. First, add deploy-rs to your flake inputs:
-      ```nix
-      {
-        inputs.deploy-rs.url = "github:serokell/deploy-rs";
-      }
-      ```
+1. System Updates:
+   ```bash
+   # Update flake inputs
+   nix flake update
+   
+   # Deploy updates
+   nix run github:serokell/deploy-rs -- .#<hostname>
+   ```
 
-   2. Add a deployment configuration to your flake:
-      ```nix
-      {
-        deploy.nodes.<hostname> = {
-          hostname = "<server-ip>";
-          profiles.system = {
-            user = "root";
-            path = deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.<hostname>;
-          };
-        };
-      }
-      ```
+2. Key Rotation:
+   ```bash
+   # Generate new WireGuard keys
+   nix run .#generate-wireguard-keys -- <environment> <server>
+   
+   # Update admin keys
+   nix run .#add-wireguard-admin -- --name <admin> --update-key
+   ```
 
-   3. Deploy updates using:
-      ```bash
-      nix run github:serokell/deploy-rs -- .#<hostname>
-      ```
+3. Backup Strategy:
+   - Keep encrypted copies of:
+     - `wireguard/private-keys.json`
+     - `servers.json`
+     - Any custom configurations
+   - Store backups in a secure location
+   - Test restoration procedures regularly
 
-   This method is faster than full reinstalls as it only updates changed components.
+4. Troubleshooting:
+   - WireGuard issues: Check `journalctl -u wireguard-wg0`
+   - Deployment failures: Verify network and configurations
+   - Access issues: Check SSH keys and firewall rules
 
 ## Repository Structure
 
@@ -407,73 +248,7 @@ To use this repository in your project:
             └── hardware-configuration.nix
 ```
 
-## System Configuration
-
-The base configuration (`modules/base.nix`) provides:
-
-- Network configuration with WireGuard VPN support
-- Firewall configuration (ports 22, 80, 443 open by default)
-- SOPS secrets management
-- User setup with SSH key authentication
-- Passwordless sudo for the `nix` user
-- SSH server with secure defaults
-- Nix flakes support
-- Essential system packages (vim, git, wireguard-tools, sops)
-
-## Maintenance
-
-### Routine Tasks
-
-1. **System Updates**
-   ```bash
-   # Update flake inputs
-   nix flake update
-   
-   # Deploy updates
-   nix run github:serokell/deploy-rs -- .#<hostname>
-   ```
-
-2. **Key Rotation**
-   - Generate new WireGuard keys:
-     ```bash
-     nix run .#generate-wireguard-keys -- <environment> <server>
-     ```
-   - Update admin keys:
-     ```bash
-     nix run .#add-wireguard-admin -- --name <admin> --update-key
-     ```
-
-3. **Backup Strategy**
-   - Keep encrypted copies of:
-     - `wireguard/private-keys.json`
-     - `servers.json`
-     - Any custom configurations
-   - Store backups in a secure location
-   - Test restoration procedures regularly
-
-### Troubleshooting
-
-Common issues and solutions:
-
-1. **WireGuard Connection Issues**
-   - Verify UDP port 51820 is open
-   - Check endpoint accessibility
-   - Validate peer configurations
-   - Review system logs: `journalctl -u wireguard-wg0`
-
-2. **Deployment Failures**
-   - Verify network connectivity
-   - Check hardware configuration matches
-   - Review deployment logs
-   - Ensure all required secrets are available
-
-3. **System Access Issues**
-   - Verify SSH key permissions
-   - Check firewall rules
-   - Ensure WireGuard is running
-   - Test direct and VPN connectivity
-
-## Development Shell
+## Development
 
 A development shell with required tools is provided:
 
@@ -482,7 +257,6 @@ nix develop
 ```
 
 This gives you access to:
-
 - `netcat` for network operations
 - `sops` for secrets management
 - `yq` and `jq` for YAML/JSON processing
