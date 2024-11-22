@@ -10,7 +10,7 @@
 let
   # Function to read all files from authorized_keys directory
   readAuthorizedKeys = let
-    keyDir = ./authorized_keys;
+    keyDir = ../authorized_keys;
     # Read all files in the directory
     fileNames = builtins.attrNames (builtins.readDir keyDir);
     # Read content of each file
