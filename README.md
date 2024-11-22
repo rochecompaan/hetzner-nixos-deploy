@@ -307,9 +307,13 @@ To use this repository in your project:
    Each server configuration requires:
    - `name`: The hostname of your server
    - `networking`: Network configuration including interface name, IPs and gateway
-   - `authorizedKeys`: List of SSH public keys for the `nix` user
 
    The server configurations are organized by environment (staging/production).
+   
+   SSH authorized keys are managed through individual files in the `modules/authorized_keys` 
+   directory. Each file should contain one public key and be named descriptively 
+   (e.g., `alice.pub`, `bob.pub`). The system automatically reads all files from 
+   this directory and adds them as authorized keys for the `nix` user.
    The WireGuard peer configuration is automatically read from `wireguard/peers.json`,
    which contains both server and admin peer information.
 

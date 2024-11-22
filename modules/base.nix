@@ -2,11 +2,23 @@
 , pkgs
 , config
 , networking
-, authorizedKeys
 , hostname
 , environment
 , ...
 }:
+
+let
+  # Function to read all files from authorized_keys directory
+  readAuthorizedKeys = let
+    keyDir = ./authorized_keys;
+    # Read all files in the directory
+    fileNames = builtins.attrNames (builtins.readDir keyDir);
+    # Read content of each file
+    readKey = file: builtins.readFile (keyDir + "/${file}");
+  in
+    # Map over all files and read their contents
+    map readKey fileNames;
+in
 {
   # Networking configuration
   networking = {
@@ -48,7 +60,7 @@
   users.users.nix = {
     isNormalUser = true;
     extraGroups = [ "wheel" ];
-    openssh.authorizedKeys.keys = authorizedKeys;
+    openssh.authorizedKeys.keys = readAuthorizedKeys;
   };
 
   # Sudo configuration
