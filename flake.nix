@@ -93,6 +93,15 @@
           text = builtins.readFile ./scripts/generate-wireguard-config.sh;
         };
 
+        generate-server-config = pkgs.writeShellApplication {
+          name = "generate-server-config";
+          runtimeInputs = with pkgs; [
+            curl
+            jq
+          ];
+          text = builtins.readFile ./scripts/generate-server-config.sh;
+        };
+
         add-wireguard-admin = pkgs.writeShellApplication {
           name = "add-wireguard-admin";
           runtimeInputs = with pkgs; [
@@ -127,6 +136,11 @@
         generate-wireguard-config = {
           type = "app";
           program = "${self.packages.x86_64-linux.generate-wireguard-config}/bin/generate-wireguard-config";
+        };
+
+        generate-server-config = {
+          type = "app";
+          program = "${self.packages.x86_64-linux.generate-server-config}/bin/generate-server-config";
         };
 
         add-wireguard-admin = {

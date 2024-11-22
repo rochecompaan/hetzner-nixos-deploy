@@ -8,6 +8,17 @@ TEMP_SECRETS=$(mktemp)
 TEMP_CONFIG=$(mktemp)
 SOPS_CONFIG=".sops.yaml"
 
+# Helper function to safely run jq
+safe_jq() {
+    local result
+    if ! result=$(jq "$@" 2>&1); then
+        echo "Error running jq command: $result" >&2
+        echo "Command was: jq $*" >&2
+        exit 1
+    fi
+    echo "$result"
+}
+
 # Ensure required tools are available
 if ! command -v wg &> /dev/null; then
     echo "Error: wireguard-tools is required but not installed" >&2
@@ -81,12 +92,12 @@ for server in $SERVERS; do
     
     # Generate new keypair for this server
     keypair=$(generate_wireguard_keypair)
-    private_key=$(echo "${keypair}" | jq -r '.privateKey')
-    public_key=$(echo "${keypair}" | jq -r '.publicKey')
+    private_key=$(echo "${keypair}" | safe_jq -r '.privateKey')
+    public_key=$(echo "${keypair}" | safe_jq -r '.publicKey')
     
     # Get server's public IP and private IP
-    public_ip=$(jq -r --arg name "$server" '.servers[$name].networking.enp0s31f6.publicIP' "${SERVERS_CONFIG}")
-    private_ip=$(jq -r --arg name "$server" '.servers[$name].networking.wg0.privateIP' "${SERVERS_CONFIG}")
+    public_ip=$(safe_jq -r --arg name "$server" '.servers[$name].networking.enp0s31f6.publicIP' "${SERVERS_CONFIG}")
+    private_ip=$(safe_jq -r --arg name "$server" '.servers[$name].networking.wg0.privateIP' "${SERVERS_CONFIG}")
     
     echo "Updating secrets for server $server..." >&2
     # Update private key in secrets file
