@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Default values
-PATTERN=${1:-"myserver"}
+PATTERN=${1:-""}
 WG_SUBNET=${2:-"172.16.0.0/16"}
 
 # Constants
