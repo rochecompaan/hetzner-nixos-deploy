@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Constants
 SERVERS_CONFIG="servers.json"
-SECRETS_FILE="wireguard/private-keys.json"
+SECRETS_FILE="secrets/wireguard.json"
 
 # Check if required files exist
 for file in "$SERVERS_CONFIG" "$SECRETS_FILE"; do
@@ -81,7 +81,7 @@ EOF
 
   # SOPS configuration for WireGuard private key
   sops = {
-    defaultSopsFile = ../wireguard/private-keys.json;
+    defaultSopsFile = ../secrets/wireguard.json;
     secrets = {
       "servers/\${environment}/\${hostname}/privateKey" = { };
     };

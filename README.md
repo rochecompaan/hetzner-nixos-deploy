@@ -33,7 +33,7 @@ be integrated into project-specific NixOS configurations.
      - &admin_alice age1...
      - &admin_bob age1...
    creation_rules:
-     - path_regex: wireguard/private-keys.json$
+     - path_regex: secrets/[^/]+\.(yaml|json|env|ini)$
        key_groups:
        - age:
          - *admin_alice
@@ -314,7 +314,7 @@ Each peer (server or admin) needs a unique key pair and IP address.
 
 3. Backup Strategy:
    - Keep encrypted copies of:
-     - `wireguard/private-keys.json`
+     - `secrets/wireguard.json`
      - `servers.json`
      - Any custom configurations
    - Store backups in a secure location

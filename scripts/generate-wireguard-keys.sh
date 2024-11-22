@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Constants
 SERVERS_CONFIG="servers.json"
-SECRETS_FILE="wireguard/private-keys.json"
+SECRETS_FILE="secrets/wireguard.json"
 TEMP_SECRETS=$(mktemp)
 TEMP_CONFIG=$(mktemp)
 SOPS_CONFIG=".sops.yaml"
