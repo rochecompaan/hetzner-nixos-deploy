@@ -310,15 +310,20 @@ To use this repository in your project:
    - `networking`: Network configuration including interface name, IPs and gateway
 
    The server configurations are organized by environment (staging/production).
+
+3. Configure SSH authorized keys:
    
-   SSH authorized keys are managed through individual files in the `modules/authorized_keys` 
+   SSH keys are managed through individual files in the `modules/authorized_keys` 
    directory. Each file should contain one public key and be named descriptively 
    (e.g., `alice.pub`, `bob.pub`). The system automatically reads all files from 
    this directory and adds them as authorized keys for the `nix` user.
+
+4. Configure WireGuard peers:
+   
    The WireGuard peer configuration is automatically read from `wireguard/peers.json`,
    which contains both server and admin peer information.
 
-3. Test building a server configuration:
+5. Test building a server configuration:
 
    ```bash
    nix build .#nixosConfigurations.your-server.config.system.build.toplevel
