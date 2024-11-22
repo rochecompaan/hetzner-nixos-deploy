@@ -263,8 +263,26 @@ To use this repository in your project:
    }
    ```
 
-2. Create a `servers.json` file to define your server configurations:
+2. Generate the `servers.json` file using the Hetzner Robot API:
 
+   ```bash
+   # First, create an encrypted secrets file with your Hetzner Robot credentials
+   echo '{"hetzner_robot_username": "your-username", "hetzner_robot_password": "your-password"}' | sops -e > secrets/hetzner.json
+
+   # Generate servers.json for all servers
+   nix run .#generate-server-config
+
+   # Or generate for servers matching a specific pattern
+   nix run .#generate-server-config -- "mycity"
+   ```
+
+   This will create a `servers.json` file with all your registered servers from Hetzner Robot. The script:
+   - Fetches server details from the Hetzner Robot API
+   - Configures network settings based on server IP information
+   - Assigns sequential WireGuard IPs in the 172.16.0.0/24 range
+   - Sets up default interface names and gateway IPs
+
+   The generated file will look like:
    ```json
    {
      "servers": {
@@ -278,31 +296,14 @@ To use this repository in your project:
              "wg0": {
                "privateIP": "172.16.0.1"
              }
-           },
-           "authorizedKeys": [
-             "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI..."
-           ]
-         }
-       },
-       "production": {
-         "server2": {
-           "name": "server2", 
-           "networking": {
-             "interfaceName": "enp0s31f6",
-             "publicIP": "98.76.54.32",
-             "defaultGateway": "98.76.54.1",
-             "wg0": {
-               "privateIP": "172.16.0.2"
-             }
-           },
-           "authorizedKeys": [
-             "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI..."
-           ]
+           }
          }
        }
      }
    }
    ```
+
+   You can then customize this generated configuration as needed.
 
    Each server configuration requires:
    - `name`: The hostname of your server
