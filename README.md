@@ -137,34 +137,68 @@ Network Requirements:
 
 ### 5. Access Management
 
-1. SSH Key Management:
-   Add public keys to `authorized_keys/`:
+#### SSH Access
+
+SSH keys are used for direct server access and are managed through the
+`authorized_keys/` directory. The base system configuration (`modules/base.nix`)
+automatically adds these keys to the `nix` user's authorized keys.
+
+1. Using an Existing SSH Key:
    ```bash
-   # Example: Add user's key
-   echo "ssh-ed25519 AAAAC3..." > authorized_keys/user.pub
+   # Copy your existing public key
+   cp ~/.ssh/id_ed25519.pub authorized_keys/alice.pub
    ```
 
-2. WireGuard Admin Access:
+2. Generating a New Project-Specific Key:
+   ```bash
+   # Generate a new ED25519 key pair
+   ssh-keygen -t ed25519 -C "alice@project" -f ~/.ssh/project_ed25519
+   
+   # Copy the public key to authorized_keys
+   cp ~/.ssh/project_ed25519.pub authorized_keys/alice.pub
+   
+   # Update SSH config to use the project key
+   cat >> ~/.ssh/config << EOF
+   
+   # Project-specific configuration
+   Host project-*
+     IdentityFile ~/.ssh/project_ed25519
+     User nix
+   EOF
+   ```
+
+#### WireGuard Network Access
+
+WireGuard provides secure network access between servers and administrators.
+Each peer (server or admin) needs a unique key pair and IP address.
+
+1. Generate Admin WireGuard Keys:
+   ```bash
+   # Generate a new WireGuard key pair
+   wg genkey | tee privatekey | wg pubkey > publickey
+   
+   # View your public key
+   cat publickey
+   ```
+
+2. Add Admin to WireGuard Network:
    ```bash
    nix run .#add-wireguard-admin -- \
      --name alice \
      --endpoint alice.duckdns.org \
-     --public-key <alice-pubkey> \
+     --public-key "$(cat publickey)" \
      --private-ip 172.16.0.10
    ```
 
-3. Configure SSH Access:
+3. Configure Local WireGuard Client:
    ```bash
-   # Add to ~/.ssh/config:
-   Host mycity-*
-     IdentityFile ~/.ssh/mycity_ed25519
-     User nix
-     
-   # Check server configs
-   cat systems/x86_64-linux/server1/wg0.nix
+   # Generate client configuration
+   nix run .#generate-wireguard-config -- \
+     --private-key "$(cat privatekey)" \
+     --address 172.16.0.10/24 > wireguard/wg0.conf
    
-   # Check encrypted private keys
-   sops wireguard/private-keys.json
+   # Start WireGuard interface
+   sudo wg-quick up ./wireguard/wg0.conf
    ```
 
 ### 6. Deployment
