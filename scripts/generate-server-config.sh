@@ -87,15 +87,18 @@ counter=1
 SUBNET_BASE=$(get_subnet_base "$WG_SUBNET")
 
 # Process each server
+echo "Found $(echo "$SERVERS" | wc -l) servers matching pattern '$PATTERN'"
+echo "----------------------------------------"
+
 echo "$SERVERS" | while read -r server_json; do
     if [ -z "$server_json" ]; then
         continue
     fi
 
     # Extract server details from the full JSON object
-    echo "Processing server JSON: $server_json" >&2
     name=$(echo "$server_json" | safe_jq -r '.server_name')
     public_ip=$(echo "$server_json" | safe_jq -r '.server_ip')
+    dc=$(echo "$server_json" | safe_jq -r '.dc')
     
     if [ -z "$name" ] || [ -z "$public_ip" ]; then
         echo "Warning: Missing required server details, skipping..." >&2
@@ -137,9 +140,13 @@ echo "$SERVERS" | while read -r server_json; do
             }
         }' "$SERVERS_CONFIG" > "$TEMP_FILE" && mv "$TEMP_FILE" "$SERVERS_CONFIG"
 
-    echo "Added/updated configuration for $name" >&2
+    echo "✓ Processed server: $name"
+    echo "  • Location: $dc"
+    echo "  • Public IP: $public_ip"
+    echo "  • WireGuard IP: $wg_ip"
+    echo "----------------------------------------"
     ((counter++))
 done
 
-echo "Configuration update complete" >&2
-echo "Updated servers.json with new configurations" >&2
+echo "Configuration update complete"
+echo "Updated $(echo "$SERVERS" | wc -l) servers in servers.json"
