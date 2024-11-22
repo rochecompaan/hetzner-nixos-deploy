@@ -111,10 +111,6 @@ echo "$SERVERS" | while read -r server_json; do
     gateway=$(echo "$public_ip" | sed 's/\.[0-9]*$/.1/')
     subnet_mask="24"
 
-    # Generate WireGuard IP based on counter
-    wg_ip="172.16.0.${counter}"
-    ((counter++))
-
     # Generate WireGuard private IP
     wg_ip="${SUBNET_BASE}.0.${counter}"
 
