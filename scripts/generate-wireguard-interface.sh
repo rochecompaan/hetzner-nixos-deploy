@@ -53,26 +53,29 @@ for NAME in $SERVERS; do
     peers = [
 EOF
 
-    # Add server peers (excluding self)
-    jq -r --arg name "$NAME" \
-        '.servers | to_entries[] | select(.key != $name) | .value |
-        "      { # \(.name)\n" +
-        "        publicKey = \"\(.publicKey)\";\n" +
-        "        allowedIPs = [ \"\(.networking.wg0.privateIP)/32\" ];\n" +
-        "        endpoint = \"\(.networking.enp0s31f6.publicIP):51820\";\n" +
-        "        persistentKeepalive = 25;\n" +
-        "      }"' \
-        "$SERVERS_CONFIG" >> "$OUTPUT_DIR/wg0.nix"
+    # Add server and admin peers
+    {
+        # Add server peers (excluding self)
+        jq -r --arg name "$NAME" \
+            '.servers | to_entries[] | select(.key != $name) | .value |
+            "      { # \(.name)\n" +
+            "        publicKey = \"\(.publicKey)\";\n" +
+            "        allowedIPs = [ \"\(.networking.wg0.privateIP)/32\" ];\n" +
+            "        endpoint = \"\(.networking.enp0s31f6.publicIP):51820\";\n" +
+            "        persistentKeepalive = 25;\n" +
+            "      }"' \
+            "$SERVERS_CONFIG"
 
-    # Add admin peers
-    jq -r '.admins | to_entries[] | .key as $name | .value |
-        "      { # \($name)\n" +
-        "        publicKey = \"\(.publicKey)\";\n" +
-        "        allowedIPs = [ \"\(.privateIP)/32\" ];\n" +
-        "        endpoint = \"\(.endpoint):51820\";\n" +
-        "        persistentKeepalive = 25;\n" +
-        "      }"' \
-        "$SERVERS_CONFIG" >> "$OUTPUT_DIR/wg0.nix"
+        # Add admin peers
+        jq -r '.admins | to_entries[] | .key as $name | .value |
+            "      { # \($name)\n" +
+            "        publicKey = \"\(.publicKey)\";\n" +
+            "        allowedIPs = [ \"\(.privateIP)/32\" ];\n" +
+            "        endpoint = \"\(.endpoint):51820\";\n" +
+            "        persistentKeepalive = 25;\n" +
+            "      }"' \
+            "$SERVERS_CONFIG"
+    } >> "$OUTPUT_DIR/wg0.nix"
 
     # Close the configuration
     cat >> "$OUTPUT_DIR/wg0.nix" << EOF
