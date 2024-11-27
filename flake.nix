@@ -124,7 +124,9 @@
           yq
           jq
           stdenv.cc.cc.lib
-        ];
+          curl
+          wireguard-tools
+        ] ++ builtins.attrValues self.packages;
       };
     };
 }
