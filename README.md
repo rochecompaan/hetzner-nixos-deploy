@@ -7,6 +7,7 @@ be integrated into project-specific NixOS configurations.
 ## Quick Start Summary
 
 1. **Initial Setup**
+   - Create a project-specific flake
    - Configure SOPS encryption
    - Set up Hetzner Robot credentials
 
@@ -53,7 +54,49 @@ For detailed instructions, follow the setup phases below.
    - SOPS for secrets management
    - Basic understanding of NixOS configuration
 
-2. SOPS Configuration
+2. Create Project Flake
+   Create a new flake.nix in your project directory:
+   ```nix
+   {
+     description = "myproject description";
+
+     inputs = {
+       nixpkgs.url = "github:NixOS/nixpkgs";
+       flake-parts.url = "github:hercules-ci/flake-parts";
+       hetzner-deploy-scripts.url = "github:rochecompaan/hetzner-nixos-deploy";
+     };
+
+     outputs =
+       inputs:
+       inputs.flake-parts.lib.mkFlake { inherit inputs; } {
+         systems = [ "x86_64-linux" ];
+
+         perSystem =
+           { config, pkgs, ... }:
+           {
+             devShells.default = pkgs.mkShell {
+               buildInputs = with pkgs; [
+                 # your packages here
+               ] ++ (builtins.attrValues inputs.hetzner-deploy-scripts.packages);
+             };
+           };
+       };
+   }
+   ```
+
+   This flake:
+   - Imports the hetzner-nixos-deploy scripts as a dependency
+   - Makes all scripts available in your development shell
+   - Allows you to add your own project-specific packages
+
+   Enter the development shell:
+   ```bash
+   nix develop
+   ```
+
+   All hetzner-nixos-deploy scripts will be available in your PATH.
+
+3. SOPS Configuration
    ```yaml
    keys:
      - &admin_alice age1...
