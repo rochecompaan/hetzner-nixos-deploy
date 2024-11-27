@@ -23,7 +23,8 @@ get_network_prefix() {
 
 # Function to get first two octets from network prefix
 get_subnet_base() {
-    local network=$(get_network_prefix "$1")
+    local network
+    network=$(get_network_prefix "$1")
     echo "${network%.*.*}"
 }
 
@@ -74,7 +75,7 @@ ALL_SERVERS=$(curl -s -u "$ROBOT_USERNAME:$ROBOT_PASSWORD" \
 
 # Then filter by pattern
 SERVERS=$(echo "$ALL_SERVERS" | safe_jq -c --arg pattern "$PATTERN" \
-    'select(.server_name | startswith($pattern))')
+    "select(.server_name | startswith(\$pattern))")
 
 # Debug output
 echo "Filtered servers matching pattern '$PATTERN':"
@@ -108,7 +109,7 @@ echo "$SERVERS" | while read -r server_json; do
     echo "Processing server: $name (IP: $public_ip)" >&2
     
     # For Hetzner servers, gateway is typically the first IP in the /24 subnet
-    gateway=$(echo "$public_ip" | sed 's/\.[0-9]*$/.1/')
+    gateway=${public_ip%.*}.1
     subnet_mask="24"
 
     # Generate WireGuard private IP
