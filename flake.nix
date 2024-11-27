@@ -15,7 +15,7 @@
         config = { allowUnfree = true; };
       };
     in
-    {
+    rec {
       lib = {
         # Function to create a server configuration
         mkServer =
@@ -45,7 +45,7 @@
           };
       };
 
-      packages.x86_64-linux = {
+      packages = {
         activate-rescue-mode = pkgs.writeShellApplication {
           name = "activate-rescue-mode";
           runtimeInputs = with pkgs; [
@@ -112,42 +112,10 @@
         };
       };
 
-      apps.x86_64-linux = {
-        activate-rescue-mode = {
-          type = "app";
-          program = "${self.packages.x86_64-linux.activate-rescue-mode}/bin/activate-rescue-mode";
-        };
-
-        generate-disko-config = {
-          type = "app";
-          program = "${self.packages.x86_64-linux.generate-disko-config}/bin/generate-disko-config";
-        };
-
-        generate-hardware-config = {
-          type = "app";
-          program = "${self.packages.x86_64-linux.generate-hardware-config}/bin/generate-hardware-config";
-        };
-
-        generate-wireguard-interface = {
-          type = "app";
-          program = "${self.packages.x86_64-linux.generate-wireguard-interface}/bin/generate-wireguard-interface";
-        };
-
-        generate-wireguard-config = {
-          type = "app";
-          program = "${self.packages.x86_64-linux.generate-wireguard-config}/bin/generate-wireguard-config";
-        };
-
-        generate-server-config = {
-          type = "app";
-          program = "${self.packages.x86_64-linux.generate-server-config}/bin/generate-server-config";
-        };
-
-        add-wireguard-admin = {
-          type = "app";
-          program = "${self.packages.x86_64-linux.add-wireguard-admin}/bin/add-wireguard-admin";
-        };
-      };
+      apps = builtins.mapAttrs (name: pkg: {
+        type = "app";
+        program = "${pkg}/bin/${name}";
+      }) packages;
 
       devShell.${system} = pkgs.mkShell {
         buildInputs = with pkgs; [
