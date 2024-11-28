@@ -275,46 +275,7 @@ existing key or generate a project specific one.
 WireGuard provides secure network access between servers and administrators.
 Each peer (server or admin) needs a unique key pair and IP address.
 
-1. Generate wireguard keys for servers listed in `servers.json`.
-
-   ```bash
-   nix run .#generate-wireguard-keys
-   ```
-
-   Server private keys are stored in `secrets/wireguard.json`.
-
-   Public keys are added to `servers.json`. The wireguard interface section
-   for each server will be updated with the following peer settings:
-
-   ```
-             "wg0": {
-               "privateIP": "172.16.0.1"
-               "publicKey": <generated public key>,
-               "endpoint": <same as networking.publicIP>,
-             }
-   ```
-
-2. Generate Admin WireGuard Keys:
-
-   ```bash
-   # Generate a new WireGuard key pair
-   wg genkey | tee privatekey | wg pubkey > publickey
-
-   # View your public key
-   cat publickey
-   ```
-
-3. Add Admin to WireGuard Network:
-
-   ```bash
-   nix run .#add-wireguard-admin -- \
-     --name alice \
-     --endpoint alice.duckdns.org \
-     --public-key "$(cat publickey)" \
-     --private-ip 172.16.0.10
-   ```
-
-4. Generate WireGuard interface configurations:
+1. Generate WireGuard interface configurations:
 
    ```bash
    nix run .#generate-wireguard-interface
@@ -351,7 +312,27 @@ Each peer (server or admin) needs a unique key pair and IP address.
       }
    ```
 
-5. Configure Local WireGuard Client:
+2. Generate Admin WireGuard Keys:
+
+   ```bash
+   # Generate a new WireGuard key pair
+   wg genkey | tee privatekey | wg pubkey > publickey
+
+   # View your public key
+   cat publickey
+   ```
+
+3. Add Admin to WireGuard Network:
+
+   ```bash
+   nix run .#add-wireguard-admin -- \
+     --name alice \
+     --endpoint alice.duckdns.org \
+     --public-key "$(cat publickey)" \
+     --private-ip 172.16.0.10
+   ```
+
+4. Configure Local WireGuard Client:
 
    ```bash
    # Generate client configuration
