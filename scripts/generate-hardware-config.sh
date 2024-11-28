@@ -14,7 +14,7 @@ if [ -z "$REMOTE_SERVER" ] || [ -z "$HOSTNAME" ]; then
 fi
 
 # Create the output directory
-OUTPUT_DIR="./systems/x86_64-linux/$HOSTNAME"
+OUTPUT_DIR="./hosts/$HOSTNAME"
 mkdir -p "$OUTPUT_DIR"
 
 echo "Running kexec installer and generating hardware config on remote server..."

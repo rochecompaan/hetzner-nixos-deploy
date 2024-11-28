@@ -14,7 +14,7 @@ if [ -z "$REMOTE_SERVER" ] || [ -z "$HOSTNAME" ]; then
 fi
 
 # Create the output directory
-OUTPUT_DIR="./systems/x86_64-linux/$HOSTNAME"
+OUTPUT_DIR="./hosts/$HOSTNAME"
 mkdir -p "$OUTPUT_DIR"
 DISKO_CONFIG_FILE="$OUTPUT_DIR/disko.nix"
 
@@ -125,7 +125,7 @@ else
     disk=$(echo "$disk_info" | cut -d',' -f1)
     disk_name=$(basename "$disk")
 
-    cat << EOF >> "./systems/$HOSTNAME/disko.nix"
+    cat << EOF >> "./hosts/$HOSTNAME/disko.nix"
       $disk_name = {
         type = "disk";
         device = "$disk";
