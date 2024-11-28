@@ -2,46 +2,36 @@
 set -euo pipefail
 
 # Constants
-SERVERS_CONFIG="servers.json"
 SECRETS_FILE="secrets/wireguard.json"
 TEMP_SECRETS=$(mktemp)
-TEMP_CONFIG=$(mktemp)
 SOPS_CONFIG=".sops.yaml"
+HOSTS_DIR="hosts"
 
-# Helper function to safely run jq
-safe_jq() {
-    local result
-    if ! result=$(jq "$@" 2>&1); then
-        echo "Error running jq command: $result" >&2
-        echo "Command was: jq $*" >&2
-        exit 1
-    fi
-    echo "$result"
+# Helper function to extract value from Nix expression
+extract_nix_value() {
+    local file="$1"
+    local attr="$2"
+    nix eval --impure --expr "
+        let
+            config = import $file { };
+        in
+        config.$attr
+    " 2>/dev/null || echo ""
 }
 
 # Ensure required tools are available
-if ! command -v wg &> /dev/null; then
-    echo "Error: wireguard-tools is required but not installed" >&2
-    exit 1
-fi
-
-if ! command -v sops &> /dev/null; then
-    echo "Error: sops is required but not installed" >&2
-    exit 1
-fi
-
-if ! command -v jq &> /dev/null; then
-    echo "Error: jq is required but not installed" >&2
-    exit 1
-fi
-
-# Check if required files exist
-for file in "$SERVERS_CONFIG" "$SOPS_CONFIG"; do
-    if [[ ! -f "${file}" ]]; then
-        echo "Error: Required file ${file} not found" >&2
+for cmd in wg sops nix; do
+    if ! command -v "$cmd" &> /dev/null; then
+        echo "Error: $cmd is required but not installed" >&2
         exit 1
     fi
 done
+
+# Check if required files exist
+if [[ ! -f "${SOPS_CONFIG}" ]]; then
+    echo "Error: Required file ${SOPS_CONFIG} not found" >&2
+    exit 1
+fi
 
 # Create necessary directories
 mkdir -p "$(dirname "${SECRETS_FILE}")"
@@ -57,17 +47,6 @@ generate_wireguard_keypair() {
     echo "{\"privateKey\": \"${private_key}\", \"publicKey\": \"${public_key}\"}"
 }
 
-# Helper function to safely run jq
-safe_jq() {
-    local result
-    if ! result=$(jq "$@" 2>&1); then
-        echo "Error running jq command: $result" >&2
-        echo "Command was: jq $*" >&2
-        exit 1
-    fi
-    echo "$result"
-}
-
 echo "Reading/initializing secrets file..." >&2
 # Initialize or read existing secrets file
 if [[ -f "${SECRETS_FILE}" ]]; then
@@ -78,57 +57,70 @@ else
     echo '{"servers": {}}' > "${TEMP_SECRETS}"
 fi
 
-echo "Copying servers config..." >&2
-# Copy servers config for modification
-cp "${SERVERS_CONFIG}" "${TEMP_CONFIG}"
-
 echo "Getting server list..." >&2
-# Get list of servers from servers.json
-SERVERS=$(safe_jq -r '.servers | keys[]' "${SERVERS_CONFIG}")
+# Get list of servers from hosts directory
+SERVERS=$(find "$HOSTS_DIR" -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
 
 # Process each server
 for server in $SERVERS; do
     echo "Processing server: $server" >&2
     
+    # Check if default.nix exists
+    if [[ ! -f "$HOSTS_DIR/$server/default.nix" ]]; then
+        echo "Warning: $HOSTS_DIR/$server/default.nix not found, skipping..." >&2
+        continue
+    }
+    
     # Generate new keypair for this server
     keypair=$(generate_wireguard_keypair)
-    private_key=$(echo "${keypair}" | safe_jq -r '.privateKey')
-    public_key=$(echo "${keypair}" | safe_jq -r '.publicKey')
+    private_key=$(echo "${keypair}" | jq -r '.privateKey')
+    public_key=$(echo "${keypair}" | jq -r '.publicKey')
     
-    # Get server's public IP and private IP
-    public_ip=$(safe_jq -r --arg name "$server" '.servers[$name].networking.enp0s31f6.publicIP' "${SERVERS_CONFIG}")
-    private_ip=$(safe_jq -r --arg name "$server" '.servers[$name].networking.wg0.privateIP' "${SERVERS_CONFIG}")
+    # Get server's network configuration
+    public_ip=$(extract_nix_value "$HOSTS_DIR/$server/default.nix" "networking.interfaces.enp0s31f6.ipv4.addresses[0].address")
+    private_ip=$(extract_nix_value "$HOSTS_DIR/$server/default.nix" "networking.wg0.privateIP")
+    
+    if [[ -z "$public_ip" ]] || [[ -z "$private_ip" ]]; then
+        echo "Warning: Missing network configuration for $server, skipping..." >&2
+        continue
+    fi
     
     echo "Updating secrets for server $server..." >&2
     # Update private key in secrets file
-    safe_jq --arg server "$server" \
+    jq --arg server "$server" \
        --arg private_key "$private_key" \
        '.servers[$server] = {"privateKey": $private_key}' \
        "${TEMP_SECRETS}" > "${TEMP_SECRETS}.new" && mv "${TEMP_SECRETS}.new" "${TEMP_SECRETS}"
     
-    echo "Updating config for server $server..." >&2
-    # Update server config with public key and endpoint
-    safe_jq --arg server "$server" \
-       --arg public_key "$public_key" \
-       --arg public_ip "$public_ip" \
-       --arg private_ip "$private_ip" \
-       '.servers[$server].networking.wg0 += {
-          "publicKey": $public_key,
-          "endpoint": $public_ip,
-          "privateIP": $private_ip
-        }' \
-       "${TEMP_CONFIG}" > "${TEMP_CONFIG}.new" && mv "${TEMP_CONFIG}.new" "${TEMP_CONFIG}"
+    echo "Updating WireGuard configuration for $server..." >&2
+    # Create or update wg0.nix
+    cat > "$HOSTS_DIR/$server/wg0.nix" << EOF
+{ config, lib, pkgs, ... }:
+
+{
+  networking.wg-quick.interfaces.wg0 = {
+    address = [ "${private_ip}/24" ];
+    listenPort = 51820;
+    privateKeyFile = config.sops.secrets."servers/${server}/privateKey".path;
+  };
+
+  sops = {
+    defaultSopsFile = ../secrets/wireguard.json;
+    secrets = {
+      "servers/${server}/privateKey" = { };
+    };
+  };
+}
+EOF
 done
 
-# Save the files
-cp "${TEMP_CONFIG}" "${SERVERS_CONFIG}"
-cp "${TEMP_SECRETS}" "${SECRETS_FILE}"
-sops --encrypt --in-place "${SECRETS_FILE}"
+# Encrypt and save the secrets file
+sops --encrypt "${TEMP_SECRETS}" > "${SECRETS_FILE}"
 
 # Clean up
-rm "${TEMP_SECRETS}" "${TEMP_CONFIG}"
+rm "${TEMP_SECRETS}"
 
 # Print completion message
 echo "WireGuard configuration completed:" >&2
 echo "  • Private keys stored in ${SECRETS_FILE} (encrypted)" >&2
-echo "  • Server configuration updated in ${SERVERS_CONFIG}" >&2
+echo "  • WireGuard configurations updated in hosts/<server>/wg0.nix" >&2
