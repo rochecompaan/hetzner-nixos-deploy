@@ -48,7 +48,7 @@ for NAME in $SERVERS; do
   networking.wg-quick.interfaces.wg0 = {
     address = [ "${PRIVATE_IP}/24" ];
     listenPort = 51820;
-    privateKeyFile = config.sops.secrets."servers/\${environment}/\${hostname}/privateKey".path;
+    privateKeyFile = config.sops.secrets."servers/${NAME}/privateKey".path;
 
     peers = [
 EOF
@@ -86,7 +86,7 @@ EOF
   sops = {
     defaultSopsFile = ../secrets/wireguard.json;
     secrets = {
-      "servers/\${environment}/\${hostname}/privateKey" = { };
+      "servers/${NAME}/privateKey" = { };
     };
   };
 }
