@@ -114,25 +114,6 @@ EOF
         fi
     done
 
-    # Add admin peers if they exist
-    if [ -f "wireguard/admins.json" ]; then
-        while IFS= read -r line; do
-            name=$(echo "$line" | jq -r '.name')
-            public_key=$(echo "$line" | jq -r '.publicKey')
-            private_ip=$(echo "$line" | jq -r '.privateIP')
-            endpoint=$(echo "$line" | jq -r '.endpoint')
-            
-            cat >> "$HOSTS_DIR/$server/wg0.nix" << EOF
-      { # ${name}
-        publicKey = "${public_key}";
-        allowedIPs = [ "${private_ip}/32" ];
-        endpoint = "${endpoint}:51820";
-        persistentKeepalive = 25;
-      }
-EOF
-        done < <(jq -c '.[]' "wireguard/admins.json")
-    fi
-
     # Close the configuration
     cat >> "$HOSTS_DIR/$server/wg0.nix" << EOF
     ];
