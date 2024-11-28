@@ -147,17 +147,14 @@ For detailed instructions, follow the setup phases below.
    ```json
    {
      "servers": {
-       #TODO: environment is hardcoded in the script
-       "staging": {
-         "server1": {
-           "name": "server1",
-           "networking": {
-             "interfaceName": "enp0s31f6",
-             "publicIP": "123.45.67.89",
-             "defaultGateway": "123.45.67.1",
-             "wg0": {
-               "privateIP": "172.16.0.1"
-             }
+       "server1": {
+         "name": "server1",
+         "networking": {
+           "interfaceName": "enp0s31f6",
+           "publicIP": "123.45.67.89",
+           "defaultGateway": "123.45.67.1",
+           "wg0": {
+             "privateIP": "172.16.0.1"
            }
          }
        }
@@ -402,9 +399,8 @@ Each peer (server or admin) needs a unique key pair and IP address.
 │   └── base.nix           # Base system configuration
 ├── secrets/
 │   └── wireguard.json    # WireGuard keys and configurations
-└── systems/              # Server-specific configurations
-    └── x86_64-linux/
-        └── <hostname>/
+└── hosts/               # Server-specific configurations
+    └── <hostname>/
             ├── disko.nix
             ├── hardware-configuration.nix
             └── wg0.nix
