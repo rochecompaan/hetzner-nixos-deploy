@@ -7,20 +7,24 @@ be integrated into project-specific NixOS configurations.
 ## Quick Start Summary
 
 1. **Initial Setup**
+
    - Create a project-specific flake
    - Configure SOPS encryption
    - Set up Hetzner Robot credentials
 
 2. **Server Discovery**
+
    - Generate `servers.json` with server details
    - Configure network settings automatically
 
 3. **Hardware Setup**
+
    - Boot server into rescue mode
    - Generate disk (disko) configuration
    - Generate hardware configuration
 
 4. **Network Setup**
+
    - Configure SSH access with project keys
    - Generate WireGuard keys for all servers
    - Set up WireGuard mesh network
@@ -49,6 +53,7 @@ For detailed instructions, follow the setup phases below.
 ### 1. Initial Setup
 
 1. Prerequisites
+
    - Nix with flakes enabled
    - A Hetzner server
    - SOPS for secrets management
@@ -56,6 +61,7 @@ For detailed instructions, follow the setup phases below.
 
 2. Create Project Flake
    Create a new flake.nix in your project directory:
+
    ```nix
    {
      description = "myproject description";
@@ -85,11 +91,13 @@ For detailed instructions, follow the setup phases below.
    ```
 
    This flake:
+
    - Imports the hetzner-nixos-deploy scripts as a dependency
    - Makes all scripts available in your development shell
    - Allows you to add your own project-specific packages
 
    Enter the development shell:
+
    ```bash
    nix develop
    ```
@@ -97,6 +105,7 @@ For detailed instructions, follow the setup phases below.
    All hetzner-nixos-deploy scripts will be available in your PATH.
 
 3. SOPS Configuration
+
    ```yaml
    keys:
      - &admin_alice age1...
@@ -104,12 +113,13 @@ For detailed instructions, follow the setup phases below.
    creation_rules:
      - path_regex: secrets/[^/]+\.(yaml|json|env|ini)$
        key_groups:
-       - age:
-         - *admin_alice
-         - *admin_bob
+         - age:
+             - *admin_alice
+             - *admin_bob
    ```
 
    Generate age key:
+
    ```bash
    mkdir -p ~/.config/sops/age
    age-keygen -o ~/.config/sops/age/keys.txt
@@ -120,17 +130,20 @@ For detailed instructions, follow the setup phases below.
 ### 2. Server Discovery & Configuration
 
 1. Create Hetzner Robot credentials file:
+
    ```bash
    echo '{"hetzner_robot_username": "your-username", "hetzner_robot_password": "your-password"}' | sops -e > secrets/hetzner.json
    ```
 
 2. Generate server configurations using the Hetzner Robot API:
+
    ```bash
    nix run .#generate-server-config
    ```
 
-   You can pass any pattern filter to filter the list of servers. Adding
+   You can pass any jq pattern filter to script. Adding
    `myproject` will filter to all servers starting with "myproject".
+
    ```bash
    nix run .#generate-server-config -- "myproject"
    ```
@@ -144,6 +157,7 @@ For detailed instructions, follow the setup phases below.
    - Sets up default interface names and gateway IPs
 
    The script will generate a `default.nix` file for each server in the `hosts/<hostname>/` directory:
+
    ```nix
    {
      imports = [
@@ -180,16 +194,19 @@ For detailed instructions, follow the setup phases below.
 ### 3. Hardware Setup
 
 1. Activate rescue mode:
+
    ```bash
    nix run .#activate-rescue-mode -- <server-ip> <hostname>
    ```
 
 2. Generate disk configuration:
+
    ```bash
    nix run .#generate-disko-config -- <server-ip> <hostname>
    ```
 
 3. Generate hardware configuration:
+
    ```bash
    nix run .#generate-hardware-config -- <server-ip> <hostname>
    ```
@@ -228,22 +245,24 @@ automatically adds these keys to the `nix` user's authorized keys. Use your
 existing key or generate a project specific one.
 
 1. Using an Existing SSH Key:
+
    ```bash
    # Copy your existing public key
    cp ~/.ssh/id_ed25519.pub authorized_keys/alice.pub
    ```
 
 2. Generating a New Project-Specific Key:
+
    ```bash
    # Generate a new ED25519 key pair
    ssh-keygen -t ed25519 -C "alice@project" -f ~/.ssh/project_ed25519
-   
+
    # Copy the public key to authorized_keys
    cp ~/.ssh/project_ed25519.pub authorized_keys/alice.pub
-   
+
    # Update SSH config to use the project key
    cat >> ~/.ssh/config << EOF
-   
+
    # Project-specific configuration
    Host <publicip>
      IdentityFile ~/.ssh/project_ed25519
@@ -254,9 +273,10 @@ existing key or generate a project specific one.
 ### 5. Wireguard Network Access
 
 WireGuard provides secure network access between servers and administrators.
-Each peer (server or admin) needs a unique key pair and IP address. 
+Each peer (server or admin) needs a unique key pair and IP address.
 
 1. Generate wireguard keys for servers listed in `servers.json`.
+
    ```bash
    nix run .#generate-wireguard-keys
    ```
@@ -265,6 +285,7 @@ Each peer (server or admin) needs a unique key pair and IP address.
 
    Public keys are added to `servers.json`. The wireguard interface section
    for each server will be updated with the following peer settings:
+
    ```
              "wg0": {
                "privateIP": "172.16.0.1"
@@ -274,15 +295,17 @@ Each peer (server or admin) needs a unique key pair and IP address.
    ```
 
 2. Generate Admin WireGuard Keys:
+
    ```bash
    # Generate a new WireGuard key pair
    wg genkey | tee privatekey | wg pubkey > publickey
-   
+
    # View your public key
    cat publickey
    ```
 
 3. Add Admin to WireGuard Network:
+
    ```bash
    nix run .#add-wireguard-admin -- \
      --name alice \
@@ -292,6 +315,7 @@ Each peer (server or admin) needs a unique key pair and IP address.
    ```
 
 4. Generate WireGuard interface configurations:
+
    ```bash
    nix run .#generate-wireguard-interface
    ```
@@ -299,6 +323,7 @@ Each peer (server or admin) needs a unique key pair and IP address.
    This script creates a wireguard module for each server listed in
    `servers.json` in `systems/x86_64-linux/<servername>/wg0.nix` that looks like
    this:
+
    ```nix
       {
         networking.wg-quick.interfaces.wg0 = {
@@ -326,13 +351,14 @@ Each peer (server or admin) needs a unique key pair and IP address.
       }
    ```
 
-3. Configure Local WireGuard Client:
+5. Configure Local WireGuard Client:
+
    ```bash
    # Generate client configuration
    nix run .#generate-wireguard-config -- \
      --private-key "$(cat privatekey)" \
      --address 172.16.0.10/24 > wireguard/wg0.conf
-   
+
    # Start WireGuard interface
    sudo wg-quick up ./wireguard/wg0.conf
    ```
@@ -340,6 +366,7 @@ Each peer (server or admin) needs a unique key pair and IP address.
 ### 6. Deployment
 
 1. Pre-deployment Checklist:
+
    - [ ] Hardware configuration generated
    - [ ] Disk configuration created
    - [ ] WireGuard keys generated
@@ -348,11 +375,13 @@ Each peer (server or admin) needs a unique key pair and IP address.
    - [ ] Backup of existing data (if applicable)
 
 2. Initial Deployment:
+
    ```bash
    nix run github:nix-community/nixos-anywhere -- --flake .#<hostname> root@<server-ip>
    ```
 
    After deployment:
+
    ```bash
    # Wait a minute for the server to finish rebooting
    ssh nix@<server-ip>
@@ -360,6 +389,7 @@ Each peer (server or admin) needs a unique key pair and IP address.
 
 3. Subsequent Updates:
    Add deploy-rs to your flake:
+
    ```nix
    {
      inputs.deploy-rs.url = "github:serokell/deploy-rs";
@@ -367,6 +397,7 @@ Each peer (server or admin) needs a unique key pair and IP address.
    ```
 
    Deploy updates:
+
    ```bash
    nix run github:serokell/deploy-rs -- .#<hostname>
    ```
@@ -374,24 +405,27 @@ Each peer (server or admin) needs a unique key pair and IP address.
 ### 7. Maintenance
 
 1. System Updates:
+
    ```bash
    # Update flake inputs
    nix flake update
-   
+
    # Deploy updates
    nix run github:serokell/deploy-rs -- .#<hostname>
    ```
 
 2. Key Rotation:
+
    ```bash
    # Generate new WireGuard keys
    nix run .#generate-wireguard-keys -- <environment> <server>
-   
+
    # Update admin keys
    nix run .#add-wireguard-admin -- --name <admin> --update-key
    ```
 
 3. Backup Strategy:
+
    - Keep encrypted copies of:
      - `secrets/wireguard.json`
      - `servers.json`
@@ -428,6 +462,7 @@ nix develop
 ```
 
 This gives you access to:
+
 - `netcat` for network operations
 - `sops` for secrets management
 - `yq` and `jq` for YAML/JSON processing
