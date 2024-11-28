@@ -31,35 +31,48 @@ update_wg0_config() {
         return
     fi
 
-    # Read file up to the closing peers bracket
-    awk '/peers = \[/,/\];/ {
-        if ($0 ~ /\];/) {
-            # Store the line number of closing bracket
-            close_line = NR
-        }
-        print
-    }
-    END {
-        # Print the stored closing line
-        if (close_line) {
-            print "      { # " ENVIRON["NAME"]
-            print "        publicKey = \"" ENVIRON["PUBLIC_KEY"] "\";"
-            print "        allowedIPs = [ \"" ENVIRON["PRIVATE_IP"] "/32\" ];"
-            print "        endpoint = \"" ENVIRON["ENDPOINT"] ":51820\";"
-            print "        persistentKeepalive = 25;"
-            print "      }"
-            print "    ];"
-        }
-    }' "$wg0_file" > "$temp_file"
-
-    # Print the rest of the file after peers section
-    awk -v start_printing=0 '{
-        if ($0 ~ /\];/) {
-            start_printing = 1
+    # Process the file
+    awk -v name="$NAME" \
+        -v pubkey="$PUBLIC_KEY" \
+        -v privip="$PRIVATE_IP" \
+        -v endpoint="$ENDPOINT" '
+    BEGIN { in_peers = 0; peer_added = 0; }
+    {
+        if ($0 ~ /^    peers = \[/) {
+            in_peers = 1
+            print $0
             next
         }
-        if (start_printing) print
-    }' "$wg0_file" >> "$temp_file"
+        
+        if (in_peers && $0 ~ /^    \];/) {
+            if (!peer_added) {
+                print "      { # " name
+                print "        publicKey = \"" pubkey "\";"
+                print "        allowedIPs = [ \"" privip "/32\" ];"
+                print "        endpoint = \"" endpoint ":51820\";"
+                print "        persistentKeepalive = 25;"
+                print "      }"
+            }
+            in_peers = 0
+            peer_added = 0
+        }
+        
+        if (in_peers && $0 ~ "# " name) {
+            # Update existing peer
+            print "      { # " name
+            print "        publicKey = \"" pubkey "\";"
+            print "        allowedIPs = [ \"" privip "/32\" ];"
+            print "        endpoint = \"" endpoint ":51820\";"
+            print "        persistentKeepalive = 25;"
+            print "      }"
+            peer_added = 1
+            # Skip existing peer config
+            while (getline && $0 !~ /^      }/) { }
+            next
+        }
+        
+        print $0
+    }' "$wg0_file" > "$temp_file"
 
     # Replace original file
     mv "$temp_file" "$wg0_file"
