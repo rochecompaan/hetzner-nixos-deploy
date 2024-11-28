@@ -69,7 +69,7 @@ for server in $SERVERS; do
     if [[ ! -f "$HOSTS_DIR/$server/default.nix" ]]; then
         echo "Warning: $HOSTS_DIR/$server/default.nix not found, skipping..." >&2
         continue
-    }
+    fi
     
     # Generate new keypair for this server
     keypair=$(generate_wireguard_keypair)
