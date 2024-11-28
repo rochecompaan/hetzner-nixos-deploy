@@ -10,8 +10,6 @@ fi
 
 # Constants
 OUTPUT_DIR="wireguard"
-MTU=1200
-PORT=51820
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do

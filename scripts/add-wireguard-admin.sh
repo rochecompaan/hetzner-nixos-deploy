@@ -2,9 +2,6 @@
 
 set -euo pipefail
 
-# Constants
-HOSTS_DIR="hosts"
-
 # Function to show usage
 usage() {
     echo "Usage: $0 --name NAME --endpoint ENDPOINT --public-key PUBLIC_KEY --private-ip PRIVATE_IP"
@@ -43,14 +40,6 @@ update_peers_module() {
     # Move the temporary file to the final location
     mv "$temp_file" "$final_file"
 }
-
-# Check if required tools are available
-for cmd in nix; do
-    if ! command -v "$cmd" &> /dev/null; then
-        echo "Error: $cmd is required but not installed" >&2
-        exit 1
-    fi
-done
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
