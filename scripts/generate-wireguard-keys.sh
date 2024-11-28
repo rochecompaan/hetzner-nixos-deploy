@@ -44,11 +44,14 @@ generate_wireguard_keypair() {
 
 echo "Reading/initializing secrets file..." >&2
 # Initialize or read existing secrets file
+mkdir -p "$(dirname "${SECRETS_FILE}")"
 if [[ -f "${SECRETS_FILE}" ]]; then
     echo "Using existing secrets file..." >&2
 else
     echo "Creating new secrets file..." >&2
-    echo '{"servers": {}}' | sops --encrypt - > "${SECRETS_FILE}"
+    echo '{"servers": {}}' > "${SECRETS_FILE}.plain"
+    sops --config "${SOPS_CONFIG}" --encrypt "${SECRETS_FILE}.plain" > "${SECRETS_FILE}"
+    rm "${SECRETS_FILE}.plain"
 fi
 
 # Create temporary directory in secrets/ for safe operations
