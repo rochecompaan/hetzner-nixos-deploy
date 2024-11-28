@@ -45,10 +45,21 @@ generate_wireguard_keypair() {
 echo "Reading/initializing secrets file..." >&2
 # Initialize or read existing secrets file
 if [[ -f "${SECRETS_FILE}" ]]; then
-    echo "Decrypting existing secrets file..." >&2
-    sops --decrypt "${SECRETS_FILE}" > "${TEMP_SECRETS}"
+    echo "Using existing secrets file..." >&2
 else
     echo "Creating new secrets file..." >&2
+    echo '{"servers": {}}' | sops --encrypt - > "${SECRETS_FILE}"
+fi
+
+# Create temporary directory in secrets/ for safe operations
+TEMP_DIR="secrets/.tmp"
+mkdir -p "${TEMP_DIR}"
+TEMP_SECRETS="${TEMP_DIR}/wireguard.json"
+
+# Decrypt existing secrets to work with
+if [[ -f "${SECRETS_FILE}" ]]; then
+    sops --decrypt "${SECRETS_FILE}" > "${TEMP_SECRETS}"
+else
     echo '{"servers": {}}' > "${TEMP_SECRETS}"
 fi
 
@@ -112,8 +123,8 @@ done
 # Encrypt and save the secrets file
 sops --encrypt "${TEMP_SECRETS}" > "${SECRETS_FILE}"
 
-# Clean up
-rm "${TEMP_SECRETS}"
+# Clean up temporary files securely
+rm -rf "${TEMP_DIR}"
 
 # Print completion message
 echo "WireGuard configuration completed:" >&2
