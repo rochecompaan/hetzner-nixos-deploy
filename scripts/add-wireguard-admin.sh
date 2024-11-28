@@ -19,69 +19,33 @@ usage() {
     exit 1
 }
 
-# Function to update wg0.nix file
-update_wg0_config() {
-    local server_dir="$1"
-    local wg0_file="$server_dir/wg0.nix"
-    local temp_file=$(mktemp)
+# Function to update shared peers module using nix expression
+update_peers_module() {
+    local temp_file="modules/wireguard-peers.temp.nix"
+    local final_file="modules/wireguard-peers.nix"
+    mkdir -p modules
 
-    # Check if wg0.nix exists
-    if [[ ! -f "$wg0_file" ]]; then
-        echo "Warning: $wg0_file not found, skipping..." >&2
-        return
-    fi
+    # Use the lib function to update peers and write directly to file
+    nix eval --raw --show-trace --impure \
+      --expr "
+        let
+          lib = (import <nixpkgs> {}).lib;
+          wireguard = import ./lib/wireguard.nix { inherit lib; };
+        in
+          wireguard.updateAdminPeer { 
+            name = \"$NAME\";
+            publicKey = \"$PUBLIC_KEY\";
+            privateIP = \"$PRIVATE_IP\";
+            endpoint = \"$ENDPOINT\";
+          }
+      " > "$temp_file"
 
-    # Process the file
-    awk -v name="$NAME" \
-        -v pubkey="$PUBLIC_KEY" \
-        -v privip="$PRIVATE_IP" \
-        -v endpoint="$ENDPOINT" '
-    BEGIN { in_peers = 0; peer_added = 0; }
-    {
-        if ($0 ~ /^    peers = \[/) {
-            in_peers = 1
-            print $0
-            next
-        }
-        
-        if (in_peers && $0 ~ /^    \];/) {
-            if (!peer_added) {
-                print "      {"
-                print "        # " name
-                print "        publicKey = \"" pubkey "\";"
-                print "        allowedIPs = [ \"" privip "/32\" ];"
-                print "        endpoint = \"" endpoint ":51820\";"
-                print "        persistentKeepalive = 25;"
-                print "      }"
-            }
-            in_peers = 0
-            peer_added = 0
-        }
-        
-        if (in_peers && $0 ~ "# " name) {
-            # Update existing peer
-            print "      {"
-            print "        # " name
-            print "        publicKey = \"" pubkey "\";"
-            print "        allowedIPs = [ \"" privip "/32\" ];"
-            print "        endpoint = \"" endpoint ":51820\";"
-            print "        persistentKeepalive = 25;"
-            print "      }"
-            peer_added = 1
-            # Skip existing peer config
-            while (getline && $0 !~ /^      }/) { }
-            next
-        }
-        
-        print $0
-    }' "$wg0_file" > "$temp_file"
-
-    # Replace original file
-    mv "$temp_file" "$wg0_file"
+    # Move the temporary file to the final location
+    mv "$temp_file" "$final_file"
 }
 
 # Check if required tools are available
-for cmd in jq find; do
+for cmd in nix; do
     if ! command -v "$cmd" &> /dev/null; then
         echo "Error: $cmd is required but not installed" >&2
         exit 1
@@ -131,12 +95,9 @@ if ! [[ $PRIVATE_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
 fi
 
 
-# Update all server WireGuard configurations
-export NAME ENDPOINT PUBLIC_KEY PRIVATE_IP
-find "$HOSTS_DIR" -maxdepth 1 -mindepth 1 -type d | while read -r server_dir; do
-    echo "Updating WireGuard configuration for $(basename "$server_dir")..." >&2
-    update_wg0_config "$server_dir"
-done
+# Update shared peers module
+echo "Updating shared peers module..." >&2
+update_peers_module
 
 echo "Admin configuration completed:" >&2
-echo "  • Server WireGuard configurations updated in $HOSTS_DIR/*/wg0.nix" >&2
+echo "  • Admin peer added to modules/wireguard-peers.nix" >&2

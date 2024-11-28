@@ -10,3 +10,4 @@ wireguard
 servers.json
 hosts
 authorized_keys
+modules/wireguard-peers.nix

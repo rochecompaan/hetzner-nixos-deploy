@@ -9,7 +9,6 @@ if [ $# -lt 2 ]; then
 fi
 
 # Constants
-CONFIG_FILE="wireguard/peers.json"
 OUTPUT_DIR="wireguard"
 MTU=1200
 PORT=51820
@@ -50,37 +49,21 @@ if ! [[ $ADDRESS =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
     exit 1
 fi
 
-# Ensure config file exists
-if [[ ! -f "${CONFIG_FILE}" ]]; then
-    echo "Error: ${CONFIG_FILE} not found" >&2
-    exit 1
-fi
-
 # Create output directory
 mkdir -p "${OUTPUT_DIR}"
 
-# Generate config file
-CONFIG="${OUTPUT_DIR}/wg0.conf"
+# Generate WireGuard config using the wireguard.nix module
+nix eval --raw --impure --expr "
+  let
+    lib = (import <nixpkgs> {}).lib;
+    wireguard = import ./lib/wireguard.nix { inherit lib; };
+    peers = (import ./modules/wireguard-peers.nix).peers;
+  in
+    wireguard.generateConfig {
+      privateKey = \"$PRIVATE_KEY\";
+      address = \"$ADDRESS\";
+      peers = peers;
+    }
+" > "${OUTPUT_DIR}/wg0.conf"
 
-# Write interface section
-cat > "${CONFIG}" << EOF
-[Interface]
-Address = ${ADDRESS}/24
-MTU = ${MTU}
-PrivateKey = ${PRIVATE_KEY}
-ListenPort = ${PORT}
-
-# Peers within the group
-EOF
-
-# Add server peers
-jq -r '.servers | to_entries[] | .value | to_entries[] | .value | 
-    "[Peer]\nPublicKey = \(.publicKey)\nAllowedIPs = \(.privateIP)/32\nEndpoint = \(.endpoint):51820\nPersistentKeepalive = 25\n"' \
-    "${CONFIG_FILE}" >> "${CONFIG}"
-
-# Add admin peers
-jq -r '.admins | to_entries[] | .value |
-    "[Peer]\nPublicKey = \(.publicKey)\nAllowedIPs = \(.privateIP)/32\nEndpoint = \(.endpoint):51820\nPersistentKeepalive = 25\n"' \
-    "${CONFIG_FILE}" >> "${CONFIG}"
-
-echo "WireGuard configuration written to ${CONFIG}" >&2
+echo "WireGuard configuration written to ${OUTPUT_DIR}/wg0.conf" >&2
