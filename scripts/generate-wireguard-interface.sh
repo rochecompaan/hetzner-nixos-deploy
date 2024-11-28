@@ -41,7 +41,7 @@ for NAME in $SERVERS; do
     fi
 
     # Generate wg0.nix
-    cat > "$OUTPUT_DIR/wg0.nix" << EOF
+    cat > "$OUTPUT_DIR/wg0.nix" << 'EOF'
 { config, lib, pkgs, ... }:
 
 {
