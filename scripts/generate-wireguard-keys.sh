@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Constants
 SECRETS_FILE="secrets/wireguard.json"
-DECRYPTED_SECRETS="secrets/wireguard-decrypted.json"
+DECRYPTED_SECRETS=$(mktemp -p secrets --suffix=".json")
 SOPS_CONFIG=".sops.yaml"
 HOSTS_DIR="hosts"
 
