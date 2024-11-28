@@ -124,41 +124,54 @@ For detailed instructions, follow the setup phases below.
    echo '{"hetzner_robot_username": "your-username", "hetzner_robot_password": "your-password"}' | sops -e > secrets/hetzner.json
    ```
 
-2. Generate the `servers.json` file using the Hetzner Robot API:
+2. Generate server configurations using the Hetzner Robot API:
    ```bash
    nix run .#generate-server-config
    ```
 
-   You can pass any jq pattern filter to filter the list of servers. Adding
+   You can pass any pattern filter to filter the list of servers. Adding
    `myproject` will filter to all servers starting with "myproject".
    ```bash
    nix run .#generate-server-config -- "myproject"
    ```
 
-   This will create a `servers.json` file with all your registered servers from
-   Hetzner Robot. The script:
+   This will create a NixOS configuration for each server in the `hosts/` directory. The script:
 
    - Fetches server details from the Hetzner Robot API
-   - Configures network settings based on server IP information
+   - Creates a directory structure for each server
+   - Generates network configuration based on server IP information
    - Assigns sequential WireGuard IPs in the 172.16.0.0/24 range
    - Sets up default interface names and gateway IPs
 
-   The generated file will look like:
-   ```json
+   The script will generate a `default.nix` file for each server in the `hosts/<hostname>/` directory:
+   ```nix
    {
-     "servers": {
-       "server1": {
-         "name": "server1",
-         "networking": {
-           "interfaceName": "enp0s31f6",
-           "publicIP": "123.45.67.89",
-           "defaultGateway": "123.45.67.1",
-           "wg0": {
-             "privateIP": "172.16.0.1"
-           }
-         }
-       }
-     }
+     imports = [
+       ./hardware-configuration.nix
+       ./disko.nix
+       ./wg0.nix
+       ../../modules/base.nix
+     ];
+
+     networking = {
+       hostName = "server1";
+       useDHCP = false;
+
+       # Primary network interface
+       interfaces.enp0s31f6 = {
+         ipv4.addresses = [{
+           address = "123.45.67.89";
+           prefixLength = 24;
+         }];
+       };
+
+       defaultGateway = "123.45.67.1";
+
+       # WireGuard configuration
+       wg0 = {
+         privateIP = "172.16.0.1";
+       };
+     };
    }
    ```
 
