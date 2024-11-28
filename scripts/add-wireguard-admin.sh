@@ -46,7 +46,8 @@ update_wg0_config() {
         
         if (in_peers && $0 ~ /^    \];/) {
             if (!peer_added) {
-                print "      { # " name
+                print "      {"
+                print "        # " name
                 print "        publicKey = \"" pubkey "\";"
                 print "        allowedIPs = [ \"" privip "/32\" ];"
                 print "        endpoint = \"" endpoint ":51820\";"
@@ -59,7 +60,8 @@ update_wg0_config() {
         
         if (in_peers && $0 ~ "# " name) {
             # Update existing peer
-            print "      { # " name
+            print "      {"
+            print "        # " name
             print "        publicKey = \"" pubkey "\";"
             print "        allowedIPs = [ \"" privip "/32\" ];"
             print "        endpoint = \"" endpoint ":51820\";"
