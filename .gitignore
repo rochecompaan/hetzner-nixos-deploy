@@ -9,3 +9,4 @@ systems/
 wireguard
 servers.json
 hosts
+authorized_keys
