@@ -11,12 +11,7 @@ HOSTS_DIR="hosts"
 extract_nix_value() {
     local file="$1"
     local attr="$2"
-    nix eval --impure --expr "
-        let
-            config = import $file { };
-        in
-        config.$attr
-    " 2>/dev/null || echo ""
+    nix eval --file "$file" "$attr" 2>/dev/null || echo ""
 }
 
 # Ensure required tools are available
