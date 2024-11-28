@@ -78,12 +78,12 @@ for server in $SERVERS; do
     jq --arg server "$server" \
        --arg private_key "$private_key" \
        '.servers[$server] = {"privateKey": $private_key}' \
-       -i "${DECRYPTED_SECRETS}"
+       "${DECRYPTED_SECRETS}" > "${DECRYPTED_SECRETS}.new" && mv "${DECRYPTED_SECRETS}.new" "${DECRYPTED_SECRETS}"
     
     echo "Generating WireGuard configuration for $server..." >&2
     # Create wg0.nix
     cat > "$HOSTS_DIR/$server/wg0.nix" << EOF
-{ config, lib, pkgs, ... }:
+{ config, ... }:
 
 {
   networking.wg-quick.interfaces.wg0 = {
@@ -103,7 +103,8 @@ EOF
             peer_public_key=$(echo "${peer_keypair}" | jq -r '.publicKey')
             
             cat >> "$HOSTS_DIR/$server/wg0.nix" << EOF
-      { # ${peer}
+      { 
+        # ${peer}
         publicKey = "${peer_public_key}";
         allowedIPs = [ "${peer_private_ip}/32" ];
         endpoint = "${peer_public_ip}:51820";
@@ -138,7 +139,7 @@ EOF
   };
 
   sops = {
-    defaultSopsFile = ../secrets/wireguard.json;
+    defaultSopsFile = ../../secrets/wireguard.json;
     secrets = {
       "servers/${server}/privateKey" = { };
     };
