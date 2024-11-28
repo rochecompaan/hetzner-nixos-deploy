@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Constants
 SECRETS_FILE="secrets/wireguard.json"
-TEMP_SECRETS=$(mktemp)
+DECRYPTED_SECRETS="secrets/wireguard-decrypted.json"
 SOPS_CONFIG=".sops.yaml"
 HOSTS_DIR="hosts"
 
@@ -45,25 +45,14 @@ generate_wireguard_keypair() {
 echo "Reading/initializing secrets file..." >&2
 # Initialize or read existing secrets file
 mkdir -p "$(dirname "${SECRETS_FILE}")"
+
+# Decrypt existing secrets or create new file
 if [[ -f "${SECRETS_FILE}" ]]; then
-    echo "Using existing secrets file..." >&2
+    echo "Decrypting existing secrets file..." >&2
+    sops --decrypt "${SECRETS_FILE}" > "${DECRYPTED_SECRETS}"
 else
     echo "Creating new secrets file..." >&2
-    echo '{"servers": {}}' > "${SECRETS_FILE}.plain"
-    sops --config "${SOPS_CONFIG}" --encrypt "${SECRETS_FILE}.plain" > "${SECRETS_FILE}"
-    rm "${SECRETS_FILE}.plain"
-fi
-
-# Create temporary directory in secrets/ for safe operations
-TEMP_DIR="secrets/.tmp"
-mkdir -p "${TEMP_DIR}"
-TEMP_SECRETS="${TEMP_DIR}/wireguard.json"
-
-# Decrypt existing secrets to work with
-if [[ -f "${SECRETS_FILE}" ]]; then
-    sops --decrypt "${SECRETS_FILE}" > "${TEMP_SECRETS}"
-else
-    echo '{"servers": {}}' > "${TEMP_SECRETS}"
+    echo '{"servers": {}}' > "${DECRYPTED_SECRETS}"
 fi
 
 echo "Getting server list..." >&2
@@ -123,11 +112,10 @@ for server in $SERVERS; do
 EOF
 done
 
-# Encrypt and save the secrets file
-sops --encrypt "${TEMP_SECRETS}" > "${SECRETS_FILE}"
-
-# Clean up temporary files securely
-rm -rf "${TEMP_DIR}"
+# Encrypt the secrets file and clean up
+echo "Encrypting secrets file..." >&2
+sops --config "${SOPS_CONFIG}" --encrypt "${DECRYPTED_SECRETS}" > "${SECRETS_FILE}"
+rm "${DECRYPTED_SECRETS}"
 
 # Print completion message
 echo "WireGuard configuration completed:" >&2
