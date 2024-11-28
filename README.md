@@ -14,7 +14,7 @@ be integrated into project-specific NixOS configurations.
 
 2. **Server Discovery**
 
-   - Generate `servers.json` with server details
+   - Generate a nix config for each server using the Heztner Robot API.
    - Configure network settings automatically
 
 3. **Hardware Setup**
