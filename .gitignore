@@ -8,3 +8,4 @@ systems/
 .sops.yaml
 wireguard
 servers.json
+hosts
