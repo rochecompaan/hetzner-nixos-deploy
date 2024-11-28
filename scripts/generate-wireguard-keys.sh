@@ -11,7 +11,7 @@ HOSTS_DIR="hosts"
 extract_nix_value() {
     local file="$1"
     local attr="$2"
-    nix eval --file "$file" "$attr" 2>/dev/null || echo ""
+    nix eval --file "$file" "$attr" 2>/dev/null | tr -d '"' || echo ""
 }
 
 # Ensure required tools are available
