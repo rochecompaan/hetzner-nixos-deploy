@@ -75,16 +75,6 @@
           text = builtins.readFile ./scripts/generate-hardware-config.sh;
         };
 
-        generate-wireguard-interface = pkgs.writeShellApplication {
-          name = "generate-wireguard-interface";
-          runtimeInputs = with pkgs; [
-            jq
-            sops
-            wireguard-tools
-          ];
-          text = builtins.readFile ./scripts/generate-wireguard-interface.sh;
-        };
-
         generate-wireguard-config = pkgs.writeShellApplication {
           name = "generate-wireguard-config";
           runtimeInputs = with pkgs; [
