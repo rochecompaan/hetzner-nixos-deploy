@@ -37,7 +37,7 @@ For detailed instructions, follow the setup phases below.
 
 ## Features
 
-- Easy activation or rescue mode for Hetzner servers
+- Easy activation of rescue mode for Hetzner servers
 - Hardware configuration generation
 - Disk partitioning configuration using disko
 - WireGuard key management and peer configuration
@@ -350,10 +350,8 @@ Each peer (server or admin) needs a unique key pair and IP address.
 
    - [ ] Hardware configuration generated
    - [ ] Disk configuration created
-   - [ ] WireGuard keys generated
-   - [ ] Server configuration in servers.json
+   - [ ] Wireguard configuration generated
    - [ ] Network connectivity verified
-   - [ ] Backup of existing data (if applicable)
 
 2. Initial Deployment:
 
