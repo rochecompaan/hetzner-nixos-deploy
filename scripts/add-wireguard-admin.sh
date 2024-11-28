@@ -115,31 +115,6 @@ if ! [[ $PRIVATE_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
     exit 1
 fi
 
-# Create necessary directory
-mkdir -p "$(dirname "${CONFIG_FILE}")"
-
-# Initialize or read existing config file
-if [[ -f "${CONFIG_FILE}" ]]; then
-    cp "${CONFIG_FILE}" "${TEMP_FILE}"
-else
-    echo '{"servers": {}, "admins": {}}' > "${TEMP_FILE}"
-fi
-
-# Ensure admins structure exists
-jq 'if .admins == null then .admins = {} else . end' \
-   "${TEMP_FILE}" > "${TEMP_FILE}.new" && mv "${TEMP_FILE}.new" "${TEMP_FILE}"
-
-# Add or update admin configuration
-jq --arg name "$NAME" \
-   --arg endpoint "$ENDPOINT" \
-   --arg pubkey "$PUBLIC_KEY" \
-   --arg privateip "$PRIVATE_IP" \
-   '.admins[$name] = {"endpoint": $endpoint, "publicKey": $pubkey, "privateIP": $privateip}' \
-   "${TEMP_FILE}" > "${TEMP_FILE}.new" && mv "${TEMP_FILE}.new" "${TEMP_FILE}"
-
-# Save the peers file
-cp "${TEMP_FILE}" "${CONFIG_FILE}"
-rm "${TEMP_FILE}"
 
 # Update all server WireGuard configurations
 export NAME ENDPOINT PUBLIC_KEY PRIVATE_IP
