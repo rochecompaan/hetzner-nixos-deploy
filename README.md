@@ -138,14 +138,14 @@ For detailed instructions, follow the setup phases below.
 2. Generate server configurations using the Hetzner Robot API:
 
    ```bash
-   nix run .#generate-server-config
+   generate-server-config
    ```
 
    You can pass any jq pattern filter to script. Adding
    `myproject` will filter to all servers starting with "myproject".
 
    ```bash
-   nix run .#generate-server-config -- "myproject"
+   generate-server-config "myproject"
    ```
 
    This will create a NixOS configuration for each server in the `hosts/` directory. The script:
@@ -196,19 +196,19 @@ For detailed instructions, follow the setup phases below.
 1. Activate rescue mode:
 
    ```bash
-   nix run .#activate-rescue-mode -- <server-ip> <hostname>
+   activate-rescue-mode <server-ip> <hostname>
    ```
 
 2. Generate disk configuration:
 
    ```bash
-   nix run .#generate-disko-config -- <server-ip> <hostname>
+   generate-disko-config <server-ip> <hostname>
    ```
 
 3. Generate hardware configuration:
 
    ```bash
-   nix run .#generate-hardware-config -- <server-ip> <hostname>
+   generate-hardware-config <server-ip> <hostname>
    ```
 
 4. Customize Hardware Configuration (if needed):
@@ -278,7 +278,7 @@ Each peer (server or admin) needs a unique key pair and IP address.
 1. Generate WireGuard interface configurations:
 
    ```bash
-   nix run .#generate-wireguard-interface
+   generate-wireguard-interface
    ```
 
    This script creates a wireguard module for each server listed in
@@ -325,7 +325,7 @@ Each peer (server or admin) needs a unique key pair and IP address.
 3. Add Admin to WireGuard Network:
 
    ```bash
-   nix run .#add-wireguard-admin -- \
+   add-wireguard-admin \
      --name alice \
      --endpoint alice.duckdns.org \
      --public-key "$(cat publickey)" \
@@ -336,7 +336,7 @@ Each peer (server or admin) needs a unique key pair and IP address.
 
    ```bash
    # Generate client configuration
-   nix run .#generate-wireguard-config -- \
+   generate-wireguard-config \
      --private-key "$(cat privatekey)" \
      --address 172.16.0.10/24 > wireguard/wg0.conf
 
@@ -378,7 +378,7 @@ Each peer (server or admin) needs a unique key pair and IP address.
    Deploy updates:
 
    ```bash
-   nix run github:serokell/deploy-rs -- .#<hostname>
+   deploy .#<hostname>
    ```
 
 ### 7. Maintenance
@@ -390,7 +390,7 @@ Each peer (server or admin) needs a unique key pair and IP address.
    nix flake update
 
    # Deploy updates
-   nix run github:serokell/deploy-rs -- .#<hostname>
+   deploy .#<hostname>
    ```
 
 2. Key Rotation:
