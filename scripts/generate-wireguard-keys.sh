@@ -72,7 +72,7 @@ for server in $SERVERS; do
     public_key=$(echo "${keypair}" | jq -r '.publicKey')
     
     # Get server's network configuration
-    public_ip=$(extract_nix_value "$HOSTS_DIR/$server/default.nix" "networking.interfaces.enp0s31f6.ipv4.addresses[0].address")
+    public_ip=$(extract_nix_value "$HOSTS_DIR/$server/default.nix" "networking.interfaces.enp0s31f6.ipv4.addresses.0.address")
     private_ip=$(extract_nix_value "$HOSTS_DIR/$server/default.nix" "networking.wg0.privateIP")
     
     if [[ -z "$public_ip" ]] || [[ -z "$private_ip" ]]; then
