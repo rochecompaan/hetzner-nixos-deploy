@@ -6,7 +6,7 @@ PATTERN=${1:-""}
 WG_SUBNET=${2:-"172.16.0.0/16"}
 
 # Constants
-OUTPUT_DIR="systems/x86_64-linux"
+OUTPUT_DIR="hosts"
 mkdir -p "$OUTPUT_DIR"
 
 echo "Decrypting secrets..."
@@ -102,7 +102,7 @@ echo "$SERVERS" | while read -r server_json; do
     wg_ip="${SUBNET_BASE}.0.${counter}"
 
     # Create server directory
-    server_dir="$OUTPUT_DIR/$name"
+    server_dir="$OUTPUT_DIR/${name}"
     mkdir -p "$server_dir"
 
     # Generate default.nix for this server
