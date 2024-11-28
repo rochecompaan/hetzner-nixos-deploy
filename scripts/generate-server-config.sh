@@ -6,8 +6,8 @@ PATTERN=${1:-""}
 WG_SUBNET=${2:-"172.16.0.0/16"}
 
 # Constants
-SERVERS_CONFIG="servers.json"
-TEMP_FILE=$(mktemp)
+OUTPUT_DIR="systems/x86_64-linux"
+mkdir -p "$OUTPUT_DIR"
 
 echo "Decrypting secrets..."
 ROBOT_USERNAME=$(sops -d --extract '["hetzner_robot_username"]' ./secrets/hetzner.json)
@@ -39,21 +39,7 @@ if [ -z "$ROBOT_USERNAME" ] || [ -z "$ROBOT_PASSWORD" ]; then
     exit 1
 fi
 
-# Initialize servers.json structure if it doesn't exist
-if [ ! -f "$SERVERS_CONFIG" ]; then
-    echo '{"servers": {}, "admins": {}}' > "$SERVERS_CONFIG"
-fi
-
-# Function to get subnet info for an IP
-get_subnet_info() {
-    local ip=$1
-    echo "Fetching subnet info for IP: $ip" >&2
-    curl -s -u "$ROBOT_USERNAME:$ROBOT_PASSWORD" \
-        "https://robot-ws.your-server.de/ip/$ip" | \
-        safe_jq -r '.ip | {gateway: .gateway, subnet: .mask}'
-}
-
-# Helper function to safely run safe_jq
+# Helper function to safely run jq
 safe_jq() {
     local cmd="$1"
     shift
@@ -115,35 +101,50 @@ echo "$SERVERS" | while read -r server_json; do
     # Generate WireGuard private IP
     wg_ip="${SUBNET_BASE}.0.${counter}"
 
-    # Create server configuration
-    jq --arg name "$name" \
-       --arg public_ip "$public_ip" \
-       --arg gateway "$gateway" \
-       --arg subnet "$subnet_mask" \
-       --arg wg_ip "$wg_ip" \
-       --arg interface "enp0s31f6" \
-       '.servers[$name] = {
-            "name": $name,
-            "environment": "staging",
-            "networking": {
-                ($interface): {
-                    "publicIP": $public_ip,
-                    "defaultGateway": $gateway,
-                    "subnet": ($subnet|tonumber)
-                },
-                "wg0": {
-                    "privateIP": $wg_ip
-                }
-            }
-        }' "$SERVERS_CONFIG" > "$TEMP_FILE" && mv "$TEMP_FILE" "$SERVERS_CONFIG"
+    # Create server directory
+    server_dir="$OUTPUT_DIR/$name"
+    mkdir -p "$server_dir"
 
-    echo "✓ Processed server: $name"
+    # Generate default.nix for this server
+    cat > "$server_dir/default.nix" << EOF
+{
+  imports = [
+    ./hardware-configuration.nix
+    ./disko.nix
+    ./wg0.nix
+    ../../modules/base.nix
+  ];
+
+  networking = {
+    hostName = "$name";
+    useDHCP = false;
+
+    # Primary network interface
+    interfaces.enp0s31f6 = {
+      ipv4.addresses = [{
+        address = "$public_ip";
+        prefixLength = $subnet_mask;
+      }];
+    };
+
+    defaultGateway = "$gateway";
+
+    # WireGuard configuration
+    wg0 = {
+      privateIP = "$wg_ip";
+    };
+  };
+}
+EOF
+
+    echo "✓ Generated configuration for server: $name"
     echo "  • Location: $dc"
     echo "  • Public IP: $public_ip"
     echo "  • WireGuard IP: $wg_ip"
+    echo "  • Configuration: $server_dir/default.nix"
     echo "----------------------------------------"
     ((counter++))
 done
 
-echo "Configuration update complete"
-echo "Updated $(echo "$SERVERS" | wc -l) servers in servers.json"
+echo "Configuration generation complete"
+echo "Generated configurations for $(echo "$SERVERS" | wc -l) servers"
