@@ -106,10 +106,13 @@ For detailed instructions, follow the setup phases below.
 
 3. SOPS Configuration
 
+   Create a `.sops.yaml` file in your project root to configure SOPS encryption:
+
    ```yaml
+   # .sops.yaml
    keys:
-     - &admin_alice age1...
-     - &admin_bob age1...
+     - &admin_alice age1...  # Replace with your age public key
+     - &admin_bob age1...    # Add more team members as needed
    creation_rules:
      - path_regex: secrets/[^/]+\.(yaml|json|env|ini)$
        key_groups:
@@ -118,14 +121,23 @@ For detailed instructions, follow the setup phases below.
              - *admin_bob
    ```
 
-   Generate age key:
+   Generate an age key pair for encrypting/decrypting secrets:
 
    ```bash
+   # Create directory for age keys
    mkdir -p ~/.config/sops/age
+   
+   # Generate new age key pair
    age-keygen -o ~/.config/sops/age/keys.txt
+   
+   # View your public key to add to .sops.yaml
+   age-keygen -y ~/.config/sops/age/keys.txt
    ```
 
-   Add your public key to `.sops.yaml`
+   The age key pair is used by SOPS to encrypt/decrypt secrets. The public key goes in 
+   `.sops.yaml` while the private key stays in `~/.config/sops/age/keys.txt`.
+
+   For more details on using SOPS with NixOS, see the [sops-nix documentation](https://github.com/Mic92/sops-nix).
 
 ### 2. Server Discovery & Configuration
 
