@@ -5,12 +5,13 @@ set -euo pipefail
 # Constants
 CONFIG_FILE="wireguard/peers.json"
 TEMP_FILE=$(mktemp)
+HOSTS_DIR="hosts"
 
 # Function to show usage
 usage() {
     echo "Usage: $0 --name NAME --endpoint ENDPOINT --public-key PUBLIC_KEY --private-ip PRIVATE_IP"
     echo
-    echo "Add an administrator's WireGuard configuration to the peers file"
+    echo "Add an administrator's WireGuard configuration to the peers file and server configs"
     echo
     echo "Options:"
     echo "  --name        Administrator name"
@@ -20,11 +21,59 @@ usage() {
     exit 1
 }
 
+# Function to update wg0.nix file
+update_wg0_config() {
+    local server_dir="$1"
+    local wg0_file="$server_dir/wg0.nix"
+    local temp_file=$(mktemp)
+
+    # Check if wg0.nix exists
+    if [[ ! -f "$wg0_file" ]]; then
+        echo "Warning: $wg0_file not found, skipping..." >&2
+        return
+    }
+
+    # Read file up to the closing peers bracket
+    awk '/peers = \[/,/\];/ {
+        if ($0 ~ /\];/) {
+            # Store the line number of closing bracket
+            close_line = NR
+        }
+        print
+    }
+    END {
+        # Print the stored closing line
+        if (close_line) {
+            print "      { # " ENVIRON["NAME"]
+            print "        publicKey = \"" ENVIRON["PUBLIC_KEY"] "\";"
+            print "        allowedIPs = [ \"" ENVIRON["PRIVATE_IP"] "/32\" ];"
+            print "        endpoint = \"" ENVIRON["ENDPOINT"] ":51820\";"
+            print "        persistentKeepalive = 25;"
+            print "      }"
+            print "    ];"
+        }
+    }' "$wg0_file" > "$temp_file"
+
+    # Print the rest of the file after peers section
+    awk -v start_printing=0 '{
+        if ($0 ~ /\];/) {
+            start_printing = 1
+            next
+        }
+        if (start_printing) print
+    }' "$wg0_file" >> "$temp_file"
+
+    # Replace original file
+    mv "$temp_file" "$wg0_file"
+}
+
 # Check if required tools are available
-if ! command -v jq &> /dev/null; then
-    echo "Error: jq is required but not installed" >&2
-    exit 1
-fi
+for cmd in jq find; do
+    if ! command -v "$cmd" &> /dev/null; then
+        echo "Error: $cmd is required but not installed" >&2
+        exit 1
+    fi
+done
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -90,11 +139,17 @@ jq --arg name "$NAME" \
    '.admins[$name] = {"endpoint": $endpoint, "publicKey": $pubkey, "privateIP": $privateip}' \
    "${TEMP_FILE}" > "${TEMP_FILE}.new" && mv "${TEMP_FILE}.new" "${TEMP_FILE}"
 
-# Save the file
+# Save the peers file
 cp "${TEMP_FILE}" "${CONFIG_FILE}"
-
-# Clean up
 rm "${TEMP_FILE}"
 
-# Print completion message
-echo "Admin configuration saved to ${CONFIG_FILE}" >&2
+# Update all server WireGuard configurations
+export NAME ENDPOINT PUBLIC_KEY PRIVATE_IP
+find "$HOSTS_DIR" -maxdepth 1 -mindepth 1 -type d | while read -r server_dir; do
+    echo "Updating WireGuard configuration for $(basename "$server_dir")..." >&2
+    update_wg0_config "$server_dir"
+done
+
+echo "Admin configuration completed:" >&2
+echo "  • Peers file updated: ${CONFIG_FILE}" >&2
+echo "  • Server WireGuard configurations updated in $HOSTS_DIR/*/wg0.nix" >&2
