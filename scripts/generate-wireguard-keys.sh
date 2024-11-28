@@ -88,7 +88,7 @@ for server in $SERVERS; do
     jq --arg server "$server" \
        --arg private_key "$private_key" \
        '.servers[$server] = {"privateKey": $private_key}' \
-       "${TEMP_SECRETS}" > "${TEMP_SECRETS}.new" && mv "${TEMP_SECRETS}.new" "${TEMP_SECRETS}"
+       "${DECRYPTED_SECRETS}" > "${DECRYPTED_SECRETS}.new" && mv "${DECRYPTED_SECRETS}.new" "${DECRYPTED_SECRETS}"
     
     echo "Updating WireGuard configuration for $server..." >&2
     # Create or update wg0.nix
@@ -114,7 +114,7 @@ done
 
 # Encrypt the secrets file and clean up
 echo "Encrypting secrets file..." >&2
-sops --config "${SOPS_CONFIG}" --encrypt "${DECRYPTED_SECRETS}" > "${SECRETS_FILE}"
+sops --encrypt "${DECRYPTED_SECRETS}" > "${SECRETS_FILE}"
 rm "${DECRYPTED_SECRETS}"
 
 # Print completion message
