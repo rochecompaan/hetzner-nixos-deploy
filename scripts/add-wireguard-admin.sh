@@ -29,7 +29,7 @@ update_wg0_config() {
     if [[ ! -f "$wg0_file" ]]; then
         echo "Warning: $wg0_file not found, skipping..." >&2
         return
-    }
+    fi
 
     # Read file up to the closing peers bracket
     awk '/peers = \[/,/\];/ {
@@ -124,5 +124,4 @@ find "$HOSTS_DIR" -maxdepth 1 -mindepth 1 -type d | while read -r server_dir; do
 done
 
 echo "Admin configuration completed:" >&2
-echo "  • Peers file updated: ${CONFIG_FILE}" >&2
 echo "  • Server WireGuard configurations updated in $HOSTS_DIR/*/wg0.nix" >&2
