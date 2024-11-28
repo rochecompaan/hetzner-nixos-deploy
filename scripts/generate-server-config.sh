@@ -120,6 +120,7 @@ echo "$SERVERS" | while read -r server_json; do
     useDHCP = false;
 
     # Primary network interface
+    # TODO: make interface name confirurable
     interfaces.enp0s31f6 = {
       ipv4.addresses = [{
         address = "$public_ip";
