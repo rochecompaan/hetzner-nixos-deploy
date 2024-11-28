@@ -293,8 +293,8 @@ Each peer (server or admin) needs a unique key pair and IP address.
    generate-wireguard-interface
    ```
 
-   This script creates a wireguard module for each server listed in
-   `servers.json` in `systems/x86_64-linux/<servername>/wg0.nix` that looks like
+   This script creates a wireguard module for each server
+   in `systems/x86_64-linux/<servername>/wg0.nix` that looks like
    this:
 
    ```nix
@@ -419,7 +419,6 @@ Each peer (server or admin) needs a unique key pair and IP address.
 
    - Keep encrypted copies of:
      - `secrets/wireguard.json`
-     - `servers.json`
      - Any custom configurations
    - Store backups in a secure location
    - Test restoration procedures regularly

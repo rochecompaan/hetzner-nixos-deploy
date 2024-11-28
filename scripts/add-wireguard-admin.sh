@@ -3,8 +3,6 @@
 set -euo pipefail
 
 # Constants
-CONFIG_FILE="wireguard/peers.json"
-TEMP_FILE=$(mktemp)
 HOSTS_DIR="hosts"
 
 # Function to show usage
