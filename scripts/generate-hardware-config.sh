@@ -40,3 +40,17 @@ EOF
 echo "Copying hardware-configuration.nix from remote server..."
 scp $REMOTE_USER@"$REMOTE_SERVER":/mnt/hardware-configuration.nix "$OUTPUT_DIR"/
 
+# Get the primary network interface name
+PRIMARY_INTERFACE=$(ssh "$REMOTE_USER@$REMOTE_SERVER" "ip -json route show default | jq -r '.[0].dev'")
+
+if [ -z "$PRIMARY_INTERFACE" ]; then
+    echo "Error: Could not determine primary network interface"
+    exit 1
+fi
+
+# Update default.nix to use the correct interface name
+if [ -f "$OUTPUT_DIR/default.nix" ]; then
+    # Replace the placeholder interface name with the actual one
+    sed -i "s/interfaces\.REPLACED_BY_GENERATE_HARDWARE_CONFIG/interfaces.$PRIMARY_INTERFACE/" "$OUTPUT_DIR/default.nix"
+    echo "Updated network interface name in default.nix to $PRIMARY_INTERFACE"
+fi

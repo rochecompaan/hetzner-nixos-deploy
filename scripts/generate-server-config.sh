@@ -131,8 +131,7 @@ echo "$SERVERS" | while read -r server_json; do
     useDHCP = false;
 
     # Primary network interface
-    # TODO: make interface name confirurable
-    interfaces.enp0s31f6 = {
+    interfaces.REPLACED_BY_GENERATE_HARDWARE_CONFIG = {
       ipv4.addresses = [{
         address = "$public_ip";
         prefixLength = $subnet_mask;
