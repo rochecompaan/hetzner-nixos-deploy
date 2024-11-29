@@ -117,7 +117,7 @@
         })
         packages;
 
-      devShell.${system} = pkgs.mkShell {
+      devShells.${system}.default = pkgs.mkShell {
         buildInputs = with pkgs; [
           netcat
           sops
