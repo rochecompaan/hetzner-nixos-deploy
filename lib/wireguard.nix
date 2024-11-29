@@ -4,7 +4,6 @@ let
   formatPeer = peer: ''
     {
       # ${peer.name}
-      name = "${peer.name}";
       publicKey = "${peer.publicKey}";
       allowedIPs = [ "${builtins.head peer.allowedIPs}" ];
       endpoint = "${peer.endpoint}";

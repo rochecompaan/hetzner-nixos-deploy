@@ -128,7 +128,6 @@ EOF
             cat >> "modules/wireguard-peers.nix" << EOF
     {
       # ${peer}
-      name = "${peer}";
       publicKey = "${peer_public_key}";
       allowedIPs = [ "${peer_private_ip}/32" ];
       endpoint = "${peer_public_ip}:51820";
