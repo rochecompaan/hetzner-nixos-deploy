@@ -208,7 +208,11 @@ For detailed instructions, follow the setup phases below.
 1. Activate rescue mode:
 
    ```bash
-   activate-rescue-mode <server-ip> <hostname>
+   # Just activate rescue mode
+   activate-rescue-mode <server-ip>
+
+   # Or activate rescue mode and boot into NixOS installer 
+   activate-rescue-mode --boot-nixos <server-ip>
    ```
 
 2. Generate disk configuration:
