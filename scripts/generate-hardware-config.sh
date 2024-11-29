@@ -35,7 +35,7 @@ ssh $REMOTE_USER@"$REMOTE_SERVER" << 'EOF'
     nixos-generate-config --no-filesystems --dir /mnt
 EOF
 
-# Copy generated configuration files from the remote server to the local machine
-echo "Copying configuration files from remote server..."
-scp $REMOTE_USER@"$REMOTE_SERVER":/mnt/*.nix "$OUTPUT_DIR"/
+# Copy hardware config from the remote server to the local machine
+echo "Copying hardware-configuration.nix from remote server..."
+scp $REMOTE_USER@"$REMOTE_SERVER":/mnt/hardware-configuration.nix "$OUTPUT_DIR"/
 
