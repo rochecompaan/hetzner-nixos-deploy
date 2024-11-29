@@ -24,7 +24,6 @@ done
 echo "Decrypting secrets..."
 USERNAME=$(sops -d --extract '["hetzner_robot_username"]' ./secrets/hetzner.json)
 PASSWORD=$(sops -d --extract '["hetzner_robot_password"]' ./secrets/hetzner.json)
-SERVER_IP="$1"
 
 if [ -z "$SERVER_IP" ]; then
   echo "Usage: $0 [--boot-nixos] <SERVER_IP>"
