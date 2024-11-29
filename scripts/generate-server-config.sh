@@ -96,12 +96,12 @@ echo "$SERVERS" | while read -r server_json; do
     
     # Get subnet information from Hetzner API
     echo "Fetching subnet information for $public_ip..." >&2
-    subnet_info=$(curl -s -u "$ROBOT_USERNAME:$ROBOT_PASSWORD" \
-        "https://robot-ws.your-server.de/subnet/$public_ip")
+    ip_info=$(curl -s -u "$ROBOT_USERNAME:$ROBOT_PASSWORD" \
+        "https://robot-ws.your-server.de/ip/$public_ip")
     
     # Extract subnet mask and gateway
-    subnet_mask=$(echo "$subnet_info" | safe_jq -r '.subnet.mask')
-    gateway=$(echo "$subnet_info" | safe_jq -r '.subnet.gateway')
+    subnet_mask=$(echo "$ip_info" | safe_jq -r '.ip.mask')
+    gateway=$(echo "$ip_info" | safe_jq -r '.ip.gateway')
 
     if [ -z "$subnet_mask" ] || [ -z "$gateway" ]; then
         echo "Warning: Could not get subnet information, using defaults..." >&2
