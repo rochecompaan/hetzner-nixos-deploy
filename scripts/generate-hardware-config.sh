@@ -19,7 +19,7 @@ mkdir -p "$OUTPUT_DIR"
 
 echo "Running kexec installer and generating hardware config on remote server..."
 
-# Run the kexec installer and generate the hardware config
+# Run the kexec installer
 ssh $REMOTE_USER@"$REMOTE_SERVER" << 'EOF'
     set -e
     echo "Downloading and running the NixOS kexec installer..."
@@ -30,6 +30,7 @@ EOF
 echo "Waiting for $REMOTE_SERVER to reboot into the NixOS installer ..."
 sleep 30
 
+# Generate the hardware config
 ssh $REMOTE_USER@"$REMOTE_SERVER" << 'EOF'
     echo "Generating hardware configuration..."
     nixos-generate-config --no-filesystems --dir /mnt
