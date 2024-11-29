@@ -94,9 +94,20 @@ echo "$SERVERS" | while read -r server_json; do
 
     echo "Processing server: $name (IP: $public_ip)" >&2
     
-    # For Hetzner servers, gateway is typically the first IP in the /24 subnet
-    gateway=${public_ip%.*}.1
-    subnet_mask="24"
+    # Get subnet information from Hetzner API
+    echo "Fetching subnet information for $public_ip..." >&2
+    subnet_info=$(curl -s -u "$ROBOT_USERNAME:$ROBOT_PASSWORD" \
+        "https://robot-ws.your-server.de/subnet/$public_ip")
+    
+    # Extract subnet mask and gateway
+    subnet_mask=$(echo "$subnet_info" | safe_jq -r '.subnet.mask')
+    gateway=$(echo "$subnet_info" | safe_jq -r '.subnet.gateway')
+
+    if [ -z "$subnet_mask" ] || [ -z "$gateway" ]; then
+        echo "Warning: Could not get subnet information, using defaults..." >&2
+        gateway=${public_ip%.*}.1
+        subnet_mask="24"
+    fi
 
     # Generate WireGuard private IP
     wg_ip="${SUBNET_BASE}.0.${counter}"
