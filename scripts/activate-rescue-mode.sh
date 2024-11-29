@@ -3,7 +3,23 @@
 set -e
 set -o pipefail
 
+# Default values
+BOOT_NIXOS=false
 HETZNER_API_BASE_URL="https://robot-ws.your-server.de"
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --boot-nixos)
+            BOOT_NIXOS=true
+            shift
+            ;;
+        *)
+            SERVER_IP="$1"
+            shift
+            ;;
+    esac
+done
 
 echo "Decrypting secrets..."
 USERNAME=$(sops -d --extract '["hetzner_robot_username"]' ./secrets/hetzner.json)
@@ -11,7 +27,9 @@ PASSWORD=$(sops -d --extract '["hetzner_robot_password"]' ./secrets/hetzner.json
 SERVER_IP="$1"
 
 if [ -z "$SERVER_IP" ]; then
-  echo "Usage: $0 <SERVER_IP>"
+  echo "Usage: $0 [--boot-nixos] <SERVER_IP>"
+  echo "Options:"
+  echo "  --boot-nixos    Boot into NixOS installer after rescue mode is activated"
   exit 1
 fi
 
@@ -73,3 +91,13 @@ timeout 180 bash -c \
   "until nc -zv $SERVER_IP 22; do sleep 1; done"
 
 echo "$SERVER_IP is back online."
+
+if [ "$BOOT_NIXOS" = true ]; then
+    echo "Booting into NixOS installer..."
+    ssh -o StrictHostKeyChecking=no root@"$SERVER_IP" << 'EOF'
+        set -e
+        echo "Downloading and running the NixOS kexec installer..."
+        curl -L https://github.com/nix-community/nixos-images/releases/download/nixos-unstable/nixos-kexec-installer-noninteractive-x86_64-linux.tar.gz | tar -xzf- -C /root
+        /root/kexec/run
+EOF
+fi
