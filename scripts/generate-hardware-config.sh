@@ -17,28 +17,34 @@ fi
 OUTPUT_DIR="./hosts/$HOSTNAME"
 mkdir -p "$OUTPUT_DIR"
 
-echo "Running kexec installer and generating hardware config on remote server..."
-
-# Run the kexec installer
-ssh $REMOTE_USER@"$REMOTE_SERVER" << 'EOF'
-    set -e
-    echo "Downloading and running the NixOS kexec installer..."
-    curl -L https://github.com/nix-community/nixos-images/releases/download/nixos-unstable/nixos-kexec-installer-noninteractive-x86_64-linux.tar.gz | tar -xzf- -C /root
-    /root/kexec/run
+echo "Checking if we're already in the NixOS installer..."
+REMOTE_HOSTNAME=$(ssh "$REMOTE_USER@$REMOTE_SERVER" "hostname")
+if [ "$REMOTE_HOSTNAME" != "nixos-installer" ]; then
+    echo "Not in NixOS installer, booting into it..."
+    # Run the kexec installer
+    ssh "$REMOTE_USER@$REMOTE_SERVER" << 'EOF'
+        set -e
+        echo "Downloading and running the NixOS kexec installer..."
+        curl -L https://github.com/nix-community/nixos-images/releases/download/nixos-unstable/nixos-kexec-installer-noninteractive-x86_64-linux.tar.gz | tar -xzf- -C /root
+        /root/kexec/run
 EOF
 
-echo "Waiting for $REMOTE_SERVER to reboot into the NixOS installer ..."
-sleep 30
+  echo "Waiting for NixOS installer to become available..."
+  while true; do
+      REMOTE_HOSTNAME=$(ssh -o ConnectTimeout=5 "$REMOTE_USER@$REMOTE_SERVER" "hostname")
+      if [ "$REMOTE_HOSTNAME" = "nixos-installer" ]; then
+          echo "Successfully booted into NixOS installer"
+          break
+      fi
+      echo "Waiting for NixOS installer to become available..."
+      sleep 5
+  done
+
+fi
 
 # Generate the hardware config
-ssh $REMOTE_USER@"$REMOTE_SERVER" << 'EOF'
-    echo "Generating hardware configuration..."
-    nixos-generate-config --no-filesystems --dir /mnt
-EOF
-
-# Copy hardware config from the remote server to the local machine
-echo "Copying hardware-configuration.nix from remote server..."
-scp $REMOTE_USER@"$REMOTE_SERVER":/mnt/hardware-configuration.nix "$OUTPUT_DIR"/
+echo "Generating hardware configuration..."
+ssh "$REMOTE_USER@$REMOTE_SERVER" "nixos-generate-config --show-hardware-config" > "$OUTPUT_DIR/hardware-configuration.nix"
 
 # Get the primary network interface name
 PRIMARY_INTERFACE=$(ssh "$REMOTE_USER@$REMOTE_SERVER" "ip -json route show default | jq -r '.[0].dev'")
@@ -54,3 +60,5 @@ if [ -f "$OUTPUT_DIR/default.nix" ]; then
     sed -i "s/interfaces\.REPLACED_BY_GENERATE_HARDWARE_CONFIG/interfaces.$PRIMARY_INTERFACE/" "$OUTPUT_DIR/default.nix"
     echo "Updated network interface name in default.nix to $PRIMARY_INTERFACE"
 fi
+
+echo "Hardware configuration has been generated in $OUTPUT_DIR/hardware-configuration.nix"
