@@ -79,17 +79,17 @@ if [ "$use_raid" = true ]; then
         device = "$disk";
         content = {
           type = "gpt";
-          partitions = {
-            $([ "$disk_index" -eq 0 ] && cat << 'BOOT'
-boot = {
-  size = "1G";
-  type = "EF00";
-  content = {
-    type = "filesystem";
-    format = "vfat";
-    mountpoint = "/boot";
-  };
-};
+          partitions = {$([ "$disk_index" -eq 0 ] && cat << 'BOOT'
+
+            boot = {
+              size = "1G";
+              type = "EF00";
+              content = {
+                type = "filesystem";
+                format = "vfat";
+                mountpoint = "/boot";
+              };
+            };
 BOOT
 )
             raid = {
