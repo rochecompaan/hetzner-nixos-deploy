@@ -49,8 +49,19 @@ fi
 
 # Start of disko.nix content
 cat << EOF > "$DISKO_CONFIG_FILE"
-{ lib, ... }:
 {
+  boot = {
+    loader = {
+      systemd-boot = {
+        enable = true;
+      };
+      efi = {
+        canTouchEfiVariables = true;
+        efiSysMountPoint = "/boot";
+      };
+    };
+  };
+
   disko.devices = {
     disk = {
 EOF

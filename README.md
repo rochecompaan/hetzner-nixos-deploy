@@ -223,32 +223,6 @@ For detailed instructions, follow the setup phases below.
    generate-hardware-config <server-ip> <hostname>
    ```
 
-4. Customize Hardware Configuration (if needed):
-   For servers with RAID or specific boot requirements:
-
-   ```nix
-   boot = {
-     initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" ];
-     initrd.kernelModules = [ ];
-     kernelModules = [ "kvm-intel" ];
-     extraModulePackages = [ ];
-
-     # RAID configuration
-     swraid.mdadmConf = ''
-       MAILADDR nobody@nowhere
-     '';
-
-     # Boot loader configuration for multiple drives
-     loader = {
-       grub = {
-         enable = true;
-         devices = [ "/dev/nvme0n1" "/dev/nvme1n1" ];
-         efiSupport = true;
-       };
-     };
-   };
-   ```
-
 ### 4. SSH Access
 
 SSH keys are used for direct server access and are managed through the
