@@ -80,7 +80,7 @@ if [ "$use_raid" = true ]; then
         content = {
           type = "gpt";
           partitions = {
-            ${disk_index == 0 ? ''
+            $([ "$disk_index" -eq 0 ] && cat << 'BOOT'
             boot = {
               size = "1G";
               type = "EF00";
@@ -90,7 +90,8 @@ if [ "$use_raid" = true ]; then
                 mountpoint = "/boot";
               };
             };
-            '' : ""}
+BOOT
+)
             raid = {
               size = "100%";
               content = {
