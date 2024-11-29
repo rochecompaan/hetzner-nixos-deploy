@@ -80,15 +80,17 @@ if [ "$use_raid" = true ]; then
         content = {
           type = "gpt";
           partitions = {
+            ${disk_index == 0 ? ''
             boot = {
               size = "1G";
               type = "EF00";
               content = {
                 type = "filesystem";
                 format = "vfat";
-                mountpoint = "/boot$disk_index";
+                mountpoint = "/boot";
               };
             };
+            '' : ""}
             raid = {
               size = "100%";
               content = {
