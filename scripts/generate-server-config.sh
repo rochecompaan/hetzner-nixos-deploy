@@ -146,6 +146,12 @@ while read -r server_json; do
         echo "Processing server: $name (IP: $public_ip)" >&2
     fi
 
+    # Remove old host keys if they exist
+    if [ "$OVERWRITE" = true ]; then
+        ssh-keygen -R "$public_ip" 2>/dev/null || true
+        ssh-keygen -R "$name" 2>/dev/null || true
+    fi
+
     # Generate SSH host keys
     temp_dir=$(mktemp -d)
     
