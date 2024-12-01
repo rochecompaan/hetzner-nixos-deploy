@@ -44,7 +44,7 @@ fi
 
 # Generate the hardware config
 echo "Generating hardware configuration..."
-ssh "$REMOTE_USER@$REMOTE_SERVER" "nixos-generate-config --show-hardware-config" > "$OUTPUT_DIR/hardware-configuration.nix"
+ssh "$REMOTE_USER@$REMOTE_SERVER" "nixos-generate-config --no-filesystems --show-hardware-config" > "$OUTPUT_DIR/hardware-configuration.nix"
 
 # Get the primary network interface name
 PRIMARY_INTERFACE=$(ssh "$REMOTE_USER@$REMOTE_SERVER" "ip -json route show default | jq -r '.[0].dev'")
