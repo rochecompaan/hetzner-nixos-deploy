@@ -11,3 +11,4 @@ servers.json
 hosts
 authorized_keys
 modules/wireguard-peers.nix
+server-public-ssh-keys

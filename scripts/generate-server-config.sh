@@ -7,13 +7,20 @@ WG_SUBNET=${2:-"172.16.0.0/16"}
 
 # Constants
 OUTPUT_DIR="hosts"
-mkdir -p "$OUTPUT_DIR"
+SSH_KEYS_DIR="server-public-ssh-keys"
+SSH_SECRETS_FILE="secrets/server-private-ssh-keys.json"
+mkdir -p "$OUTPUT_DIR" "$SSH_KEYS_DIR"
 
-echo "Decrypting secrets..."
+# Create temporary decrypted secrets file
+DECRYPTED_SECRETS=$(mktemp -p secrets --suffix=".json")
+
+if [[ -f "${SSH_SECRETS_FILE}" ]]; then
+    sops --decrypt "${SSH_SECRETS_FILE}" > "${DECRYPTED_SECRETS}"
+else
+    echo '{}' > "${DECRYPTED_SECRETS}"
+fi
 ROBOT_USERNAME=$(sops -d --extract '["hetzner_robot_username"]' ./secrets/hetzner.json)
 ROBOT_PASSWORD=$(sops -d --extract '["hetzner_robot_password"]' ./secrets/hetzner.json)
-echo "Robot username: $ROBOT_USERNAME"
-echo "Robot password: $ROBOT_PASSWORD"
 
 # Function to get the network portion of a CIDR subnet
 get_network_prefix() {
@@ -86,19 +93,52 @@ echo "$SERVERS" | while read -r server_json; do
     name=$(echo "$server_json" | safe_jq -r '.server_name')
     public_ip=$(echo "$server_json" | safe_jq -r '.server_ip')
     dc=$(echo "$server_json" | safe_jq -r '.dc')
-    
+
     if [ -z "$name" ] || [ -z "$public_ip" ]; then
         echo "Warning: Missing required server details, skipping..." >&2
         continue
     fi
 
     echo "Processing server: $name (IP: $public_ip)" >&2
+
+    # Generate SSH host keys
+    temp_dir=$(mktemp -d)
     
+    # Generate keys quietly
+    ssh-keygen -t rsa -b 4096 -N "" -C "$name" -f "$temp_dir/ssh_host_rsa_key" -q
+    ssh-keygen -t ed25519 -N "" -C "$name" -f "$temp_dir/ssh_host_ed25519_key" -q
+
+    # Store public keys
+    echo "Copying public keys to $SSH_KEYS_DIR..." >&2
+    cp "$temp_dir/ssh_host_rsa_key.pub" "$SSH_KEYS_DIR/${name}_rsa.pub"
+    cp "$temp_dir/ssh_host_ed25519_key.pub" "$SSH_KEYS_DIR/${name}_ed25519.pub"
+    echo "Public keys copied" >&2
+
+    # Update SOPS encrypted file with new keys
+    echo "Creating JSON with private keys..." >&2
+    json_content=$(jq -n \
+        --arg rsa "$(cat "$temp_dir/ssh_host_rsa_key")" \
+        --arg ed25519 "$(cat "$temp_dir/ssh_host_ed25519_key")" \
+        --arg name "$name" \
+        '{($name): {"rsa": $rsa, "ed25519": $ed25519}}')
+    echo "JSON content created" >&2
+
+    # Update the decrypted secrets file
+    echo "Updating secrets..." >&2
+    jq --argjson new "$json_content" '. * $new' "${DECRYPTED_SECRETS}" > "${DECRYPTED_SECRETS}.new" && \
+        mv "${DECRYPTED_SECRETS}.new" "${DECRYPTED_SECRETS}"
+    echo "Secrets updated" >&2
+
+    # Clean up SSH key generation files
+    echo "Cleaning up temporary files..." >&2
+    rm -rf "$temp_dir"
+    echo "Cleanup complete" >&2
+
     # Get subnet information from Hetzner API
     echo "Fetching subnet information for $public_ip..." >&2
     ip_info=$(curl -s -u "$ROBOT_USERNAME:$ROBOT_PASSWORD" \
         "https://robot-ws.your-server.de/ip/$public_ip")
-    
+
     # Extract subnet mask and gateway
     subnet_mask=$(echo "$ip_info" | safe_jq -r '.ip.mask')
     gateway=$(echo "$ip_info" | safe_jq -r '.ip.gateway')
@@ -152,10 +192,18 @@ EOF
     echo "  • Location: $dc"
     echo "  • Public IP: $public_ip"
     echo "  • WireGuard IP: $wg_ip"
+    echo "  • SSH host keys generated"
     echo "  • Configuration: $server_dir/default.nix"
     echo "----------------------------------------"
     ((counter++))
 done
 
+# Encrypt the final secrets file
+echo "Encrypting secrets file..." >&2
+sops --encrypt "${DECRYPTED_SECRETS}" > "${SSH_SECRETS_FILE}"
+rm "${DECRYPTED_SECRETS}"
+
 echo "Configuration generation complete"
 echo "Generated configurations for $(echo "$SERVERS" | wc -l) servers"
+echo "SSH host keys stored in $SSH_KEYS_DIR"
+echo "Private keys encrypted in $SSH_SECRETS_FILE"
