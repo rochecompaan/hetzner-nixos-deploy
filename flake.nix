@@ -100,6 +100,16 @@
           text = builtins.readFile ./scripts/generate-server-config.sh;
         };
 
+        deploy-nixos = pkgs.writeShellApplication {
+          name = "deploy-nixos";
+          runtimeInputs = with pkgs; [
+            nixos-anywhere
+            jq
+            sops
+          ];
+          text = builtins.readFile ./scripts/deploy-nixos.sh;
+        };
+
         add-wireguard-admin = pkgs.writeShellApplication {
           name = "add-wireguard-admin";
           runtimeInputs = with pkgs; [
