@@ -32,7 +32,6 @@ update_peers_module() {
           # Format a peer as a nix expression string
           formatPeer = peer: ''
             {
-              # \${peer.name}
               publicKey = \"\${peer.publicKey}\";
               allowedIPs = [ \"\${builtins.head peer.allowedIPs}\" ];
               endpoint = \"\${peer.endpoint}\";
@@ -43,7 +42,7 @@ update_peers_module() {
           updatePeers = { existingPeers ? [ ], newPeer }:
             let
               # Filter out existing peer with same name if it exists
-              filteredPeers = builtins.filter (p: p.name != newPeer.name) existingPeers;
+              filteredPeers = builtins.filter (p: p.endpoint != newPeer.endpoint) existingPeers;
               # Add new peer to the list
               updatedPeers = filteredPeers ++ [ newPeer ];
               # Format the complete peers module
