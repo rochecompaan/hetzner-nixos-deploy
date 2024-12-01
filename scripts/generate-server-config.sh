@@ -141,7 +141,7 @@ while read -r server_json; do
     echo "Cleanup complete" >&2
 
     # Store age keys for final output
-    AGE_KEYS="${AGE_KEYS:-}${name}: $age_pub\n"
+    AGE_KEYS="${AGE_KEYS:-}  • ${name}: $age_pub\n"
 
     # Get subnet information from Hetzner API
     echo "Fetching subnet information for $public_ip..." >&2
