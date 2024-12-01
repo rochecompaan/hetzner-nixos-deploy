@@ -146,12 +146,6 @@ while read -r server_json; do
         echo "Processing server: $name (IP: $public_ip)" >&2
     fi
 
-    # Remove old host keys if they exist
-    if [ "$OVERWRITE" = true ]; then
-        ssh-keygen -R "$public_ip" 2>/dev/null || true
-        ssh-keygen -R "$name" 2>/dev/null || true
-    fi
-
     # Generate SSH host keys
     temp_dir=$(mktemp -d)
     
@@ -184,6 +178,13 @@ while read -r server_json; do
     echo "Generating age key from ed25519 key..." >&2
     age_pub=$(ssh-to-age < "$temp_dir/ssh_host_ed25519_key.pub")
     echo "Age key generated: $age_pub" >&2
+
+    # Add SSH host keys to known_hosts
+    echo "Adding SSH host keys to known_hosts..." >&2
+    ssh-keygen -R "$public_ip" 2>/dev/null || true
+    echo "[$public_ip]:22 $(cat "$temp_dir/ssh_host_rsa_key.pub")" >> ~/.ssh/known_hosts
+    echo "[$public_ip]:22 $(cat "$temp_dir/ssh_host_ed25519_key.pub")" >> ~/.ssh/known_hosts
+    echo "SSH host keys added to known_hosts" >&2
 
     # Clean up SSH key generation files
     echo "Cleaning up temporary files..." >&2
