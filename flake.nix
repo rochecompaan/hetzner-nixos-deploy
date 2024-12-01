@@ -7,7 +7,7 @@
     disko.url = "github:nix-community/disko";
   };
 
-  outputs = { self, nixpkgs, sops-nix }:
+  outputs = { self, nixpkgs, sops-nix, disko }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {
