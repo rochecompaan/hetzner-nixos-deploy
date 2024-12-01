@@ -22,10 +22,6 @@ update_peers_module() {
     local final_file="modules/wireguard-peers.nix"
     mkdir -p modules
 
-    # Get path to wireguard-lib package
-    local wireguard_lib
-    wireguard_lib=$(nix eval --raw .#wireguard-lib)
-
     # Use inlined functions to update peers and write directly to file
     nix eval --raw --impure \
       --expr "
@@ -36,11 +32,11 @@ update_peers_module() {
           # Format a peer as a nix expression string
           formatPeer = peer: ''
             {
-              # ${peer.name}
-              publicKey = \"${peer.publicKey}\";
-              allowedIPs = [ \"${builtins.head peer.allowedIPs}\" ];
-              endpoint = \"${peer.endpoint}\";
-              persistentKeepalive = ${toString peer.persistentKeepalive};
+              # \${peer.name}
+              publicKey = \"\${peer.publicKey}\";
+              allowedIPs = [ \"\${builtins.head peer.allowedIPs}\" ];
+              endpoint = \"\${peer.endpoint}\";
+              persistentKeepalive = \${toString peer.persistentKeepalive};
             }'';
 
           # Update peers list and generate formatted module
@@ -54,7 +50,7 @@ update_peers_module() {
               formatPeersModule = peers: ''
                 {
                   peers = [
-                    ${lib.concatStringsSep \"\" (map formatPeer peers)}
+                    \${lib.concatStringsSep \"\" (map formatPeer peers)}
                   ];
                 }
               '';
