@@ -6,7 +6,7 @@ PATTERN=${1:-""}
 WG_SUBNET=${2:-"172.16.0.0/16"}
 
 # Constants
-AGE_KEYS=""
+declare -g AGE_KEYS=""
 OUTPUT_DIR="hosts"
 SSH_KEYS_DIR="server-public-ssh-keys"
 SSH_SECRETS_FILE="secrets/server-private-ssh-keys.json"
@@ -85,7 +85,7 @@ SUBNET_BASE=$(get_subnet_base "$WG_SUBNET")
 echo "Found $(echo "$SERVERS" | wc -l) servers matching pattern '$PATTERN'"
 echo "----------------------------------------"
 
-echo "$SERVERS" | while read -r server_json; do
+while read -r server_json; do
     if [ -z "$server_json" ]; then
         continue
     fi
@@ -205,7 +205,7 @@ EOF
     echo "  • Configuration: $server_dir/default.nix"
     echo "----------------------------------------"
     ((counter++))
-done
+done < <(echo "$SERVERS")
 
 # Encrypt the final secrets file
 echo "Encrypting secrets file..." >&2
