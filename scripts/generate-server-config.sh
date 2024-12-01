@@ -132,7 +132,8 @@ echo "$SERVERS" | while read -r server_json; do
 
     # Generate age key from ed25519 private key
     echo "Generating age key from ed25519 key..." >&2
-    age_pub=$(cat "$temp_dir/ssh_host_ed25519_key.pub" | ssh-to-age)
+    age_pub=$(ssh-to-age < "$temp_dir/ssh_host_ed25519_key.pub")
+    echo "Age key generated: $age_pub" >&2
 
     # Clean up SSH key generation files
     echo "Cleaning up temporary files..." >&2
