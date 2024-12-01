@@ -7,7 +7,7 @@
     disko.url = "github:nix-community/disko";
   };
 
-  outputs = { self, nixpkgs, sops-nix, disko }:
+  outputs = { self, nixpkgs, sops-nix }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {
@@ -17,32 +17,7 @@
     in
     rec {
       lib = {
-        # Function to create a server configuration
-        mkServer =
-          { name
-          , environment
-          , networking
-          , authorizedKeys
-          }:
-          { config, lib, pkgs, ... }:
-          {
-            nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
-
-            _module.args = {
-              inherit networking authorizedKeys environment;
-              hostname = name;
-            };
-
-            imports = [
-              # Standard system configuration
-              disko.nixosModules.disko
-              sops-nix.nixosModules.sops
-              ./systems/x86_64-linux/${name}/hardware-configuration.nix
-              ./systems/x86_64-linux/${name}/disko.nix
-              ./systems/x86_64-linux/${name}/wg0.nix
-              ./modules/base.nix
-            ];
-          };
+        wireguard = import ./lib/wireguard.nix { inherit (pkgs) lib; };
       };
 
       packages = {
