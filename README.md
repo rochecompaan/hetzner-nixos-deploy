@@ -150,14 +150,17 @@ For detailed instructions, follow the setup phases below.
 2. Generate server configurations using the Hetzner Robot API:
 
    ```bash
+   # Generate for all servers
    generate-server-config
-   ```
 
-   You can pass any jq pattern filter to script. Adding
-   `myproject` will filter to all servers starting with "myproject".
-
-   ```bash
+   # Filter servers by name pattern
    generate-server-config "myproject"
+
+   # Overwrite existing configurations
+   generate-server-config --overwrite "myproject"
+
+   # Specify custom WireGuard subnet
+   generate-server-config --subnet "10.0.0.0/16" "myproject"
    ```
 
    This will create a NixOS configuration for each server in the `hosts/` directory. The script:

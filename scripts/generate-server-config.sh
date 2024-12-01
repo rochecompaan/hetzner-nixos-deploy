@@ -2,8 +2,40 @@
 set -euo pipefail
 
 # Default values
-PATTERN=${1:-""}
-WG_SUBNET=${2:-"172.16.0.0/16"}
+PATTERN=""
+WG_SUBNET="172.16.0.0/16"
+OVERWRITE=false
+
+# Show usage if --help is specified
+if [ "$1" = "--help" ]; then
+    echo "Usage: $0 [--overwrite] [--subnet SUBNET] [PATTERN]" >&2
+    echo "" >&2
+    echo "Options:" >&2
+    echo "  --overwrite    Overwrite existing configurations" >&2
+    echo "  --subnet       Specify WireGuard subnet (default: 172.16.0.0/16)" >&2
+    echo "  PATTERN        Optional pattern to filter server names" >&2
+    exit 1
+fi
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --overwrite)
+            OVERWRITE=true
+            shift
+            ;;
+        --subnet)
+            WG_SUBNET="$2"
+            shift 2
+            ;;
+        *)
+            if [ -z "$PATTERN" ]; then
+                PATTERN="$1"
+            fi
+            shift
+            ;;
+    esac
+done
 
 # Constants
 declare -g AGE_KEYS=""
@@ -100,7 +132,19 @@ while read -r server_json; do
         continue
     fi
 
-    echo "Processing server: $name (IP: $public_ip)" >&2
+    # Check if configuration exists
+    if [ -f "$OUTPUT_DIR/${name}/default.nix" ] || \
+       [ -f "$SSH_KEYS_DIR/${name}_rsa.pub" ] || \
+       [ -f "$SSH_KEYS_DIR/${name}_ed25519.pub" ]; then
+        if [ "$OVERWRITE" = true ]; then
+            echo "Configuration exists for $name - overwriting..." >&2
+        else
+            echo "Configuration exists for $name - skipping (use --overwrite to force)..." >&2
+            continue
+        fi
+    else
+        echo "Processing server: $name (IP: $public_ip)" >&2
+    fi
 
     # Generate SSH host keys
     temp_dir=$(mktemp -d)
