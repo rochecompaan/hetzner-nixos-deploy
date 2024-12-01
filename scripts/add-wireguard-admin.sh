@@ -26,19 +26,63 @@ update_peers_module() {
     local wireguard_lib
     wireguard_lib=$(nix eval --raw .#wireguard-lib)
 
-    # Use the lib function to update peers and write directly to file
+    # Use inlined functions to update peers and write directly to file
     nix eval --raw --impure \
       --expr "
         let
           pkgs = import <nixpkgs> {};
-          wireguardLib = import ${wireguard_lib}/lib/wireguard.nix { inherit (pkgs) lib; };
+          lib = pkgs.lib;
+          
+          # Format a peer as a nix expression string
+          formatPeer = peer: ''
+            {
+              # ${peer.name}
+              publicKey = \"${peer.publicKey}\";
+              allowedIPs = [ \"${builtins.head peer.allowedIPs}\" ];
+              endpoint = \"${peer.endpoint}\";
+              persistentKeepalive = ${toString peer.persistentKeepalive};
+            }'';
+
+          # Update peers list and generate formatted module
+          updatePeers = { existingPeers ? [ ], newPeer }:
+            let
+              # Filter out existing peer with same name if it exists
+              filteredPeers = builtins.filter (p: p.name != newPeer.name) existingPeers;
+              # Add new peer to the list
+              updatedPeers = filteredPeers ++ [ newPeer ];
+              # Format the complete peers module
+              formatPeersModule = peers: ''
+                {
+                  peers = [
+                    ${lib.concatStringsSep \"\" (map formatPeer peers)}
+                  ];
+                }
+              '';
+            in
+            {
+              peers = updatedPeers;
+              formatted = formatPeersModule updatedPeers;
+            };
+
+          # Get existing peers or empty list
+          existingPeers =
+            if builtins.pathExists ./modules/wireguard-peers.nix
+            then (import ./modules/wireguard-peers.nix).peers
+            else [ ];
+
+          # Create result using updatePeers
+          result = updatePeers {
+            inherit existingPeers;
+            newPeer = {
+              name = \"$NAME\";
+              publicKey = \"$PUBLIC_KEY\";
+              allowedIPs = [ \"$PRIVATE_IP/32\" ];
+              endpoint = \"$ENDPOINT\";
+              persistentKeepalive = 25;
+            };
+          };
         in
-          wireguardLib.updateAdminPeer { 
-            name = \"$NAME\";
-            publicKey = \"$PUBLIC_KEY\";
-            privateIP = \"$PRIVATE_IP\";
-            endpoint = \"$ENDPOINT\";
-          }
+          result.formatted
       " > "$temp_file"
 
     # Move the temporary file to the final location

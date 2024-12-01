@@ -21,12 +21,6 @@
       };
 
       packages = {
-        wireguard-lib = pkgs.writeTextFile {
-          name = "wireguard-lib";
-          text = builtins.readFile ./lib/wireguard.nix;
-          destination = "/lib/wireguard.nix";
-        };
-
         activate-rescue-mode = pkgs.writeShellApplication {
           name = "activate-rescue-mode";
           runtimeInputs = with pkgs; [
