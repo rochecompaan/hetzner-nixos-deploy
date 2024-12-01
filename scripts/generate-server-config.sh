@@ -188,11 +188,6 @@ while read -r server_json; do
     };
 
     defaultGateway = "$gateway";
-
-    # WireGuard configuration
-    wg0 = {
-      privateIP = "$wg_ip";
-    };
   };
 }
 EOF
