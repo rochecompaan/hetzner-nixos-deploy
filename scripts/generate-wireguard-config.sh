@@ -54,10 +54,33 @@ mkdir -p "${OUTPUT_DIR}"
 nix eval --raw --impure --expr "
   let
     lib = (import <nixpkgs> {}).lib;
-    wireguard = import ./lib/wireguard.nix { inherit lib; };
     peers = (import ./modules/wireguard-peers.nix).peers;
+
+    # Format a peer for WireGuard config file
+    formatPeerConfig = peer: ''
+      [Peer]
+      PublicKey = \${peer.publicKey}
+      AllowedIPs = \${builtins.head peer.allowedIPs}
+      Endpoint = \${peer.endpoint}
+      PersistentKeepalive = 25
+    '';
+
+    # Generate WireGuard config for admin
+    generateConfig = { privateKey, address, peers }: ''
+      [Interface]
+      Address = \${address}/24
+      MTU = 1200
+      PrivateKey = \${privateKey}
+      ListenPort = 51820
+
+      # Peers
+      \${lib.concatMapStrings formatPeerConfig 
+        (lib.filter
+          (peer: peer.allowedIPs != [ \"\${address}/32\" ])
+          peers)}
+    '';
   in
-    wireguard.generateConfig {
+    generateConfig {
       privateKey = \"$PRIVATE_KEY\";
       address = \"$ADDRESS\";
       peers = peers;
