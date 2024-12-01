@@ -22,14 +22,18 @@ update_peers_module() {
     local final_file="modules/wireguard-peers.nix"
     mkdir -p modules
 
+    # Get path to wireguard-lib package
+    local wireguard_lib
+    wireguard_lib=$(nix eval --raw .#wireguard-lib)
+
     # Use the lib function to update peers and write directly to file
-    nix eval --raw --show-trace --impure \
+    nix eval --raw --impure \
       --expr "
         let
-          lib = (import <nixpkgs> {}).lib;
-          wireguard = import ./lib/wireguard.nix { inherit lib; };
+          pkgs = import <nixpkgs> {};
+          wireguardLib = import ${wireguard_lib}/lib/wireguard.nix { inherit (pkgs) lib; };
         in
-          wireguard.updateAdminPeer { 
+          wireguardLib.updateAdminPeer { 
             name = \"$NAME\";
             publicKey = \"$PUBLIC_KEY\";
             privateIP = \"$PRIVATE_IP\";
