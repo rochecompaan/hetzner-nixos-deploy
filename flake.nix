@@ -123,6 +123,7 @@
           sops
           yq
           jq
+          ssh-to-age
           stdenv.cc.cc.lib
           curl
           wireguard-tools

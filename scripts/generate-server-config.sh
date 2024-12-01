@@ -6,6 +6,7 @@ PATTERN=${1:-""}
 WG_SUBNET=${2:-"172.16.0.0/16"}
 
 # Constants
+AGE_KEYS=""
 OUTPUT_DIR="hosts"
 SSH_KEYS_DIR="server-public-ssh-keys"
 SSH_SECRETS_FILE="secrets/server-private-ssh-keys.json"
@@ -129,10 +130,17 @@ echo "$SERVERS" | while read -r server_json; do
         mv "${DECRYPTED_SECRETS}.new" "${DECRYPTED_SECRETS}"
     echo "Secrets updated" >&2
 
+    # Generate age key from ed25519 private key
+    echo "Generating age key from ed25519 key..." >&2
+    age_pub=$(cat "$temp_dir/ssh_host_ed25519_key.pub" | ssh-to-age)
+
     # Clean up SSH key generation files
     echo "Cleaning up temporary files..." >&2
     rm -rf "$temp_dir"
     echo "Cleanup complete" >&2
+
+    # Store age keys for final output
+    AGE_KEYS="${AGE_KEYS:-}${name}: $age_pub\n"
 
     # Get subnet information from Hetzner API
     echo "Fetching subnet information for $public_ip..." >&2
@@ -207,3 +215,6 @@ echo "Configuration generation complete"
 echo "Generated configurations for $(echo "$SERVERS" | wc -l) servers"
 echo "SSH host keys stored in $SSH_KEYS_DIR"
 echo "Private keys encrypted in $SSH_SECRETS_FILE"
+echo -e "\nGenerated age public keys for .sops.yaml:"
+echo -e "$AGE_KEYS"
+echo "Add these keys to your .sops.yaml file under the appropriate creation rules"
