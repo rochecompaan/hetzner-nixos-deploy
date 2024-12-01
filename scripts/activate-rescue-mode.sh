@@ -85,9 +85,10 @@ ssh-keygen -R "$SERVER_IP"
 echo "Pausing for hardware reset to kick in for $SERVER_IP..."
 sleep 30
 
-echo "Waiting for $SERVER_IP to come back online..."
+echo -n "Waiting for $SERVER_IP to come back online..."
 timeout 180 bash -c \
-  "until nc -zv $SERVER_IP 22; do sleep 1; done"
+  "until nc -z $SERVER_IP 22 2>/dev/null; do echo -n '.'; sleep 1; done"
+echo " connected!"
 
 echo "$SERVER_IP is back online."
 
