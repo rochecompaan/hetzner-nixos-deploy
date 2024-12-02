@@ -93,8 +93,8 @@ let
     sharedPeers;
 in
 {
-  networking.wg-quick.interfaces.wg0 = {
-    address = [ "${private_ip}/24" ];
+  networking.wireguard.interfaces.wg0 = {
+    ips = [ "${private_ip}/24" ];
     listenPort = 51820;
     privateKeyFile = config.sops.secrets."servers/${server}/privateKey".path;
     peers = filteredPeers;
