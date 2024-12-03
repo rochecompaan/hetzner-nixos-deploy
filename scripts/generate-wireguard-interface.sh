@@ -49,6 +49,13 @@ echo "Getting server list..." >&2
 # Get list of servers from hosts directory
 SERVERS=$(find "$HOSTS_DIR" -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
 
+# Create shared wireguard peers configuration
+mkdir -p modules
+cat > "modules/wireguard-peers.nix" << EOF
+{
+  peers = [
+EOF
+
 # Process each server
 for server in $SERVERS; do
     echo "Processing server: $server" >&2
@@ -110,12 +117,7 @@ in
 EOF
 
     # Generate shared peers configuration
-    echo "Generating shared peers configuration..." >&2
-    mkdir -p modules
-    cat > "modules/wireguard-peers.nix" << EOF
-{
-  peers = [
-EOF
+    echo "Adding server to shared peers configuration..." >&2
 
     # Add this server to the shared peers configuration
     peer_public_key=$(echo "$private_key" | wg pubkey)
