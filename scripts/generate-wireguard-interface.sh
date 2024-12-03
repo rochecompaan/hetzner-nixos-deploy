@@ -84,11 +84,11 @@ for server in $SERVERS; do
     
     # Get server's network configuration
     # Get the first interface's first IPv4 address
-    public_ip=$(nix eval --file "$HOSTS_DIR/$server/default.nix" --apply 'config: 
+    public_ip=$(nix eval --file "$HOSTS_DIR/$server/default.nix" --apply "config: 
       let 
         firstInterface = builtins.head (builtins.attrNames config.networking.interfaces);
-        firstAddress = (builtins.head config.networking.interfaces.${firstInterface}.ipv4.addresses).address;
-      in firstAddress' 2>/dev/null | tr -d '"' || echo "")
+        firstAddress = (builtins.head config.networking.interfaces.\${firstInterface}.ipv4.addresses).address;
+      in firstAddress" 2>/dev/null | tr -d '"' || echo "")
     
     # Generate WireGuard private IP
     private_ip="${SUBNET_BASE}.0.${counter}"
