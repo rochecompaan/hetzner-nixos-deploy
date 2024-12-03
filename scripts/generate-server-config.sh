@@ -3,16 +3,14 @@ set -euo pipefail
 
 # Default values
 PATTERN=""
-WG_SUBNET="172.16.0.0/16"
 OVERWRITE=false
 
 # Show usage if --help is specified
 if [ "$1" = "--help" ]; then
-    echo "Usage: $0 [--overwrite] [--subnet SUBNET] [PATTERN]" >&2
+    echo "Usage: $0 [--overwrite] [PATTERN]" >&2
     echo "" >&2
     echo "Options:" >&2
     echo "  --overwrite    Overwrite existing configurations" >&2
-    echo "  --subnet       Specify WireGuard subnet (default: 172.16.0.0/16)" >&2
     echo "  PATTERN        Optional pattern to filter server names" >&2
     exit 1
 fi
@@ -23,10 +21,6 @@ while [[ $# -gt 0 ]]; do
         --overwrite)
             OVERWRITE=true
             shift
-            ;;
-        --subnet)
-            WG_SUBNET="$2"
-            shift 2
             ;;
         *)
             if [ -z "$PATTERN" ]; then
@@ -54,19 +48,6 @@ else
 fi
 ROBOT_USERNAME=$(sops -d --extract '["hetzner_robot_username"]' ./secrets/hetzner.json)
 ROBOT_PASSWORD=$(sops -d --extract '["hetzner_robot_password"]' ./secrets/hetzner.json)
-
-# Function to get the network portion of a CIDR subnet
-get_network_prefix() {
-    local cidr=$1
-    echo "${cidr%/*}"
-}
-
-# Function to get first two octets from network prefix
-get_subnet_base() {
-    local network
-    network=$(get_network_prefix "$1")
-    echo "${network%.*.*}"
-}
 
 # Get Hetzner Robot credentials from SOPS
 if [ ! -f "secrets/hetzner.json" ]; then
@@ -109,9 +90,6 @@ echo "$SERVERS"
 
 # Counter for WireGuard IPs (always start from 1)
 counter=1
-
-# Get subnet base for WireGuard IPs
-SUBNET_BASE=$(get_subnet_base "$WG_SUBNET")
 
 # Process each server
 echo "Found $(echo "$SERVERS" | wc -l) servers matching pattern '$PATTERN'"
@@ -209,9 +187,6 @@ while read -r server_json; do
         subnet_mask="24"
     fi
 
-    # Generate WireGuard private IP
-    wg_ip="${SUBNET_BASE}.0.${counter}"
-
     # Create server directory
     server_dir="$OUTPUT_DIR/${name}"
     mkdir -p "$server_dir"
@@ -246,7 +221,6 @@ EOF
     echo "✓ Generated configuration for server: $name"
     echo "  • Location: $dc"
     echo "  • Public IP: $public_ip"
-    echo "  • WireGuard IP: $wg_ip"
     echo "  • SSH host keys generated"
     echo "  • Configuration: $server_dir/default.nix"
     echo "----------------------------------------"

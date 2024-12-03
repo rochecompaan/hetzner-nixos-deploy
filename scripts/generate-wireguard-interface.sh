@@ -5,6 +5,17 @@ set -euo pipefail
 SECRETS_FILE="secrets/wireguard.json"
 DECRYPTED_SECRETS=$(mktemp -p secrets --suffix=".json")
 HOSTS_DIR="hosts"
+WG_SUBNET="172.16.0.0/16"
+counter=1  # Counter for WireGuard IPs (always start from 1)
+
+# Function to get subnet base (first two octets)
+get_subnet_base() {
+    local network="${WG_SUBNET%/*}"  # Remove CIDR notation
+    echo "${network%.*.*}"  # Return first two octets
+}
+
+# Get subnet base for WireGuard IPs
+SUBNET_BASE=$(get_subnet_base "$WG_SUBNET")
 
 # Helper function to extract value from Nix expression
 extract_nix_value() {
@@ -78,7 +89,10 @@ for server in $SERVERS; do
         firstInterface = builtins.head (builtins.attrNames config.networking.interfaces);
         firstAddress = (builtins.head config.networking.interfaces.${firstInterface}.ipv4.addresses).address;
       in firstAddress' 2>/dev/null | tr -d '"' || echo "")
-    private_ip=$(extract_nix_value "$HOSTS_DIR/$server/default.nix" "networking.wg0.privateIP")
+    
+    # Generate WireGuard private IP
+    private_ip="${SUBNET_BASE}.0.${counter}"
+    ((counter++))
     
     if [[ -z "$public_ip" ]] || [[ -z "$private_ip" ]]; then
         echo "⚠️  No network config found - skipped" >&2
