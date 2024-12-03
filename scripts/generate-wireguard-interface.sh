@@ -38,14 +38,14 @@ mkdir -p "$(dirname "${SECRETS_FILE}")"
 echo "Reading/initializing secrets file..." >&2
 # Initialize or read existing secrets file
 if [[ -f "${SECRETS_FILE}" ]]; then
-    echo "Decrypting existing secrets file..." >&2
+    echo "🔐 Decrypting secrets..." >&2
     sops --decrypt "${SECRETS_FILE}" > "${DECRYPTED_SECRETS}"
 else
     echo "Creating new secrets file..." >&2
     echo '{"servers": {}}' > "${DECRYPTED_SECRETS}"
 fi
 
-echo "Getting server list..." >&2
+echo "📋 Finding servers..." >&2
 # Get list of servers from hosts directory
 SERVERS=$(find "$HOSTS_DIR" -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
 
@@ -58,7 +58,7 @@ EOF
 
 # Process each server
 for server in $SERVERS; do
-    echo "Processing server: $server" >&2
+    echo -n "⚙️  $server: " >&2
     
     # Check if default.nix exists
     if [[ ! -f "$HOSTS_DIR/$server/default.nix" ]]; then
@@ -76,18 +76,15 @@ for server in $SERVERS; do
     private_ip=$(extract_nix_value "$HOSTS_DIR/$server/default.nix" "networking.wg0.privateIP")
     
     if [[ -z "$public_ip" ]] || [[ -z "$private_ip" ]]; then
-        echo "Warning: Missing network configuration for $server, skipping..." >&2
+        echo "⚠️  No network config found - skipped" >&2
         continue
     fi
     
-    echo "Updating secrets for server $server..." >&2
     # Update private key in secrets file
     jq --arg server "$server" \
        --arg private_key "$private_key" \
        '.servers[$server] = {"privateKey": $private_key}' \
        "${DECRYPTED_SECRETS}" > "${DECRYPTED_SECRETS}.new" && mv "${DECRYPTED_SECRETS}.new" "${DECRYPTED_SECRETS}"
-    
-    echo "Generating WireGuard configuration for $server..." >&2
     # Create wg0.nix that imports the shared peers module
     cat > "$HOSTS_DIR/$server/wg0.nix" << EOF
 { config, ... }:
@@ -117,7 +114,6 @@ in
 EOF
 
     # Generate shared peers configuration
-    echo "Adding server to shared peers configuration..." >&2
 
     # Add this server to the shared peers configuration
     peer_public_key=$(echo "$private_key" | wg pubkey)
@@ -131,7 +127,7 @@ EOF
     }
 EOF
 
-    echo "Generated WireGuard interface configuration in $HOSTS_DIR/$server/wg0.nix" >&2
+    echo "✓ configured" >&2
 done
 
 # Close the shared peers configuration
@@ -141,10 +137,16 @@ cat >> "modules/wireguard-peers.nix" << EOF
 EOF
 
 # Encrypt the secrets file and clean up
-echo "Encrypting secrets file..." >&2
+echo "🔒 Encrypting secrets..." >&2
 sops --encrypt "${DECRYPTED_SECRETS}" > "${SECRETS_FILE}"
 rm "${DECRYPTED_SECRETS}"
 
-echo "WireGuard configuration completed:" >&2
-echo "  • Private keys stored in ${SECRETS_FILE} (encrypted)" >&2
-echo "  • WireGuard configurations updated in hosts/<server>/wg0.nix" >&2
+echo -e "\n✨ Done! Updated:" >&2
+echo "  • ${SECRETS_FILE} (encrypted keys)" >&2
+echo "  • modules/wireguard-peers.nix (shared peer config)" >&2
+
+for server in $SERVERS; do
+    if [[ -f "$HOSTS_DIR/$server/wg0.nix" ]]; then
+        echo "  • $HOSTS_DIR/$server/wg0.nix" >&2
+    fi
+done
