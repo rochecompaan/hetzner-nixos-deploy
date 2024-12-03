@@ -110,41 +110,33 @@ in
 EOF
 
     # Generate shared peers configuration
-    if [ ! -f "modules/wireguard-peers.nix" ] || [ "$server" = "$(echo "$SERVERS" | head -n1)" ]; then
-        echo "Generating shared peers configuration..." >&2
-        mkdir -p modules
-        cat > "modules/wireguard-peers.nix" << EOF
+    echo "Generating shared peers configuration..." >&2
+    mkdir -p modules
+    cat > "modules/wireguard-peers.nix" << EOF
 {
   peers = [
 EOF
-        
-        # Add all servers to the shared peers configuration
-        for peer in $SERVERS; do
-            peer_public_ip=$(extract_nix_value "$HOSTS_DIR/$peer/default.nix" "networking.interfaces.enp0s31f6.ipv4.addresses.0.address")
-            peer_private_ip=$(extract_nix_value "$HOSTS_DIR/$peer/default.nix" "networking.wg0.privateIP")
-            peer_keypair=$(generate_wireguard_keypair)
-            peer_public_key=$(echo "${peer_keypair}" | jq -r '.publicKey')
-            
-            cat >> "modules/wireguard-peers.nix" << EOF
+
+    # Add this server to the shared peers configuration
+    peer_public_key=$(echo "$private_key" | wg pubkey)
+    cat >> "modules/wireguard-peers.nix" << EOF
     {
-      # ${peer}
+      # ${server}
       publicKey = "${peer_public_key}";
-      allowedIPs = [ "${peer_private_ip}/32" ];
-      endpoint = "${peer_public_ip}:51820";
+      allowedIPs = [ "${private_ip}/32" ];
+      endpoint = "${public_ip}:51820";
       persistentKeepalive = 25;
     }
 EOF
-        done
-        
-        # Close the shared peers configuration
-        cat >> "modules/wireguard-peers.nix" << EOF
-  ];
-}
-EOF
-    fi
 
     echo "Generated WireGuard interface configuration in $HOSTS_DIR/$server/wg0.nix" >&2
 done
+
+# Close the shared peers configuration
+cat >> "modules/wireguard-peers.nix" << EOF
+  ];
+}
+EOF
 
 # Encrypt the secrets file and clean up
 echo "Encrypting secrets file..." >&2
