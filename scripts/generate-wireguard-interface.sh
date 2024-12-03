@@ -72,7 +72,12 @@ for server in $SERVERS; do
     public_key=$(echo "${keypair}" | jq -r '.publicKey')
     
     # Get server's network configuration
-    public_ip=$(extract_nix_value "$HOSTS_DIR/$server/default.nix" "networking.interfaces.enp0s31f6.ipv4.addresses.0.address")
+    # Get the first interface's first IPv4 address
+    public_ip=$(nix eval --file "$HOSTS_DIR/$server/default.nix" --apply 'config: 
+      let 
+        firstInterface = builtins.head (builtins.attrNames config.networking.interfaces);
+        firstAddress = (builtins.head config.networking.interfaces.${firstInterface}.ipv4.addresses).address;
+      in firstAddress' 2>/dev/null | tr -d '"' || echo "")
     private_ip=$(extract_nix_value "$HOSTS_DIR/$server/default.nix" "networking.wg0.privateIP")
     
     if [[ -z "$public_ip" ]] || [[ -z "$private_ip" ]]; then
