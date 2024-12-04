@@ -118,8 +118,6 @@ SERVERS=$(echo "$ALL_SERVERS" | safe_jq -c --arg pattern "$PATTERN" \
 echo "Filtered servers matching pattern '$PATTERN':"
 echo "$SERVERS"
 
-# Counter for WireGuard IPs (always start from 1)
-counter=1
 # Create shared wireguard peers configuration
 mkdir -p modules
 cat > "modules/wireguard-peers.nix" << EOF
@@ -318,7 +316,6 @@ EOF
     echo "  • SSH host keys generated"
     echo "  • Configuration: $server_dir/default.nix"
     echo "----------------------------------------"
-    ((counter++))
 done < <(echo "$SERVERS")
 
 # Close the shared peers configuration
