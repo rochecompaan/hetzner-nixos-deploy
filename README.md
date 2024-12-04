@@ -288,40 +288,32 @@ existing key or generate a project specific one.
 WireGuard provides secure network access between servers and administrators.
 Each peer (server or admin) needs a unique key pair and IP address.
 
-1. Generate WireGuard interface configurations:
+1. WireGuard Configuration:
 
-   ```bash
-   generate-wireguard-interface
-   ```
+   The `generate-server-config` script automatically handles WireGuard configuration for each server. It:
+   
+   - Generates unique WireGuard keypairs
+   - Assigns sequential IPs in the 172.16.0.0/16 range
+   - Creates `wg0.nix` modules in each server's directory
+   - Maintains a shared peers configuration in `modules/wireguard-peers.nix`
+   - Encrypts private keys in `secrets/wireguard.json`
 
-   This script creates a wireguard module for each server in
-   `hosts/<servername>/wg0.nix` that looks like this:
+   The generated `wg0.nix` configuration looks like this:
 
    ```nix
-      {
-        networking.wg-quick.interfaces.wg0 = {
-          address = [ "172.16.0.1/24" ];
-          listenPort = 51820;
-          privateKeyFile = config.sops.secrets."servers/${environment}/${hostname}/privateKey".path;
+   {
+     networking.wireguard.interfaces.wg0 = {
+       ips = [ "172.16.0.1/24" ];
+       listenPort = 51820;
+       privateKeyFile = config.sops.secrets."servers/${name}/privateKey".path;
+       peers = filteredPeers;  # Automatically managed list of other servers
+     };
 
-          peers = [
-            { # server1
-              publicKey = "<generated public key>";
-              allowedIPs = [ "172.16.0.2/32" ];
-              endpoint = "<same as networking.publicIP for given server>";
-              persistentKeepalive = 25;
-            }
-            ...
-            { # alice admin
-              publicKey = "<generated public key>";
-              allowedIPs = [ "<same as private ip arg in add-wireguard-admin script>" ];
-              endpoint = "<same as endpoint in add-wireguard-admin script>";
-              persistentKeepalive = 25;
-            }
-         ];
-         ...
-        };
-      }
+     sops = {
+       defaultSopsFile = ../../secrets/wireguard.json;
+       secrets."servers/${name}/privateKey" = { };
+     };
+   }
    ```
 
 2. Generate Admin WireGuard Keys:
