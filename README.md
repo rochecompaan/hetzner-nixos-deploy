@@ -250,73 +250,55 @@ For detailed instructions, follow the setup phases below.
    generate-hardware-config <server-ip> <hostname>
    ```
 
-### 4. SSH Access
+### 4. Network Access Setup
 
-SSH keys are used for direct server access and are managed through the
-`authorized_keys/` directory. The base system configuration (`modules/base.nix`)
-automatically adds these keys to the `nix` user's authorized keys. Use your
-existing key or generate a project specific one.
+The server configuration process handles both SSH and WireGuard setup automatically.
 
-1. Using an Existing SSH Key:
+1. SSH Access Configuration:
 
-   ```bash
-   # Copy your existing public key
-   cp ~/.ssh/id_ed25519.pub authorized_keys/alice.pub
-   ```
+   SSH keys are used for direct server access and are managed through the
+   `authorized_keys/` directory. The base system configuration (`modules/base.nix`)
+   automatically adds these keys to the `nix` user's authorized keys.
 
-2. Generating a New Project-Specific Key:
+   a. Using an Existing SSH Key:
 
-   ```bash
-   # Generate a new ED25519 key pair
-   ssh-keygen -t ed25519 -C "alice@project" -f ~/.ssh/project_ed25519
+      ```bash
+      # Copy your existing public key
+      cp ~/.ssh/id_ed25519.pub authorized_keys/alice.pub
+      ```
 
-   # Copy the public key to authorized_keys
-   cp ~/.ssh/project_ed25519.pub authorized_keys/alice.pub
+   b. Generating a New Project-Specific Key:
 
-   # Update SSH config to use the project key
-   cat >> ~/.ssh/config << EOF
+      ```bash
+      # Generate a new ED25519 key pair
+      ssh-keygen -t ed25519 -C "alice@project" -f ~/.ssh/project_ed25519
 
-   # Project-specific configuration
-   Host <publicip>
-     IdentityFile ~/.ssh/project_ed25519
-     User nix
-   EOF
-   ```
+      # Copy the public key to authorized_keys
+      cp ~/.ssh/project_ed25519.pub authorized_keys/alice.pub
 
-### 5. Wireguard Network Access
+      # Update SSH config to use the project key
+      cat >> ~/.ssh/config << EOF
 
-WireGuard provides secure network access between servers and administrators.
-Each peer (server or admin) needs a unique key pair and IP address.
+      # Project-specific configuration
+      Host <publicip>
+        IdentityFile ~/.ssh/project_ed25519
+        User nix
+      EOF
+      ```
 
-1. WireGuard Configuration:
+2. WireGuard Network Setup:
 
-   The `generate-server-config` script automatically handles WireGuard configuration for each server. It:
+   The `generate-server-config` script automatically handles WireGuard configuration during server setup:
    
-   - Generates unique WireGuard keypairs
+   - Generates unique WireGuard keypairs for each server
    - Assigns sequential IPs in the 172.16.0.0/16 range
    - Creates `wg0.nix` modules in each server's directory
    - Maintains a shared peers configuration in `modules/wireguard-peers.nix`
    - Encrypts private keys in `secrets/wireguard.json`
 
-   The generated `wg0.nix` configuration looks like this:
+   The generated configurations enable secure communication between servers and administrators.
 
-   ```nix
-   {
-     networking.wireguard.interfaces.wg0 = {
-       ips = [ "172.16.0.1/24" ];
-       listenPort = 51820;
-       privateKeyFile = config.sops.secrets."servers/${name}/privateKey".path;
-       peers = filteredPeers;  # Automatically managed list of other servers
-     };
-
-     sops = {
-       defaultSopsFile = ../../secrets/wireguard.json;
-       secrets."servers/${name}/privateKey" = { };
-     };
-   }
-   ```
-
-2. Generate Admin WireGuard Keys:
+3. Adding WireGuard Admin Access:
 
    ```bash
    # Generate a new WireGuard key pair
