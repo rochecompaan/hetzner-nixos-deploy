@@ -4,6 +4,28 @@ set -euo pipefail
 # Default values
 PATTERN=""
 OVERWRITE=false
+WG_SUBNET="172.16.0.0/16"
+counter=1  # Counter for WireGuard IPs
+
+# Function to get subnet base (first two octets)
+get_subnet_base() {
+    local network="${WG_SUBNET%/*}"  # Remove CIDR notation
+    echo "${network%.*.*}"  # Return first two octets
+}
+
+# Get subnet base for WireGuard IPs
+SUBNET_BASE=$(get_subnet_base "$WG_SUBNET")
+
+# Function to generate WireGuard keypair
+generate_wireguard_keypair() {
+    local private_key
+    local public_key
+    
+    private_key=$(wg genkey)
+    public_key=$(echo "${private_key}" | wg pubkey)
+    
+    echo "{\"privateKey\": \"${private_key}\", \"publicKey\": \"${public_key}\"}"
+}
 
 # Show usage if --help is specified
 if [ "$1" = "--help" ]; then
@@ -36,15 +58,23 @@ declare -g AGE_KEYS=""
 OUTPUT_DIR="hosts"
 SSH_KEYS_DIR="server-public-ssh-keys"
 SSH_SECRETS_FILE="secrets/server-private-ssh-keys.json"
+WG_SECRETS_FILE="secrets/wireguard.json"
 mkdir -p "$OUTPUT_DIR" "$SSH_KEYS_DIR"
 
-# Create temporary decrypted secrets file
-DECRYPTED_SECRETS=$(mktemp -p secrets --suffix=".json")
+# Create temporary decrypted secrets files
+DECRYPTED_SSH_SECRETS=$(mktemp -p secrets --suffix=".json")
+DECRYPTED_WG_SECRETS=$(mktemp -p secrets --suffix=".json")
 
 if [[ -f "${SSH_SECRETS_FILE}" ]]; then
-    sops --decrypt "${SSH_SECRETS_FILE}" > "${DECRYPTED_SECRETS}"
+    sops --decrypt "${SSH_SECRETS_FILE}" > "${DECRYPTED_SSH_SECRETS}"
 else
-    echo '{}' > "${DECRYPTED_SECRETS}"
+    echo '{}' > "${DECRYPTED_SSH_SECRETS}"
+fi
+
+if [[ -f "${WG_SECRETS_FILE}" ]]; then
+    sops --decrypt "${WG_SECRETS_FILE}" > "${DECRYPTED_WG_SECRETS}"
+else
+    echo '{"servers": {}}' > "${DECRYPTED_WG_SECRETS}"
 fi
 ROBOT_USERNAME=$(sops -d --extract '["hetzner_robot_username"]' ./secrets/hetzner.json)
 ROBOT_PASSWORD=$(sops -d --extract '["hetzner_robot_password"]' ./secrets/hetzner.json)
@@ -90,6 +120,13 @@ echo "$SERVERS"
 
 # Counter for WireGuard IPs (always start from 1)
 counter=1
+# Create shared wireguard peers configuration
+mkdir -p modules
+cat > "modules/wireguard-peers.nix" << EOF
+{
+  peers = [
+EOF
+
 
 # Process each server
 echo "Found $(echo "$SERVERS" | wc -l) servers matching pattern '$PATTERN'"
@@ -148,8 +185,8 @@ while read -r server_json; do
 
     # Update the decrypted secrets file
     echo "Updating secrets..." >&2
-    jq --argjson new "$json_content" '. * $new' "${DECRYPTED_SECRETS}" > "${DECRYPTED_SECRETS}.new" && \
-        mv "${DECRYPTED_SECRETS}.new" "${DECRYPTED_SECRETS}"
+    jq --argjson new "$json_content" '. * $new' "${DECRYPTED_SSH_SECRETS}" > "${DECRYPTED_SSH_SECRETS}.new" && \
+        mv "${DECRYPTED_SSH_SECRETS}.new" "${DECRYPTED_SSH_SECRETS}"
     echo "Secrets updated" >&2
 
     # Generate age key from ed25519 private key
@@ -187,9 +224,66 @@ while read -r server_json; do
         subnet_mask="24"
     fi
 
+    # Generate WireGuard configuration
+    echo "Generating WireGuard configuration..." >&2
+    
+    # Generate WireGuard keypair
+    keypair=$(generate_wireguard_keypair)
+    wg_private_key=$(echo "${keypair}" | jq -r '.privateKey')
+    wg_public_key=$(echo "${keypair}" | jq -r '.publicKey')
+    
+    # Generate WireGuard private IP
+    wg_private_ip="${SUBNET_BASE}.0.${counter}"
+    ((counter++))
+    
+    # Update WireGuard private key in secrets file
+    jq --arg server "$name" \
+       --arg private_key "$wg_private_key" \
+       '.servers[$server] = {"privateKey": $private_key}' \
+       "${DECRYPTED_WG_SECRETS}" > "${DECRYPTED_WG_SECRETS}.new" && mv "${DECRYPTED_WG_SECRETS}.new" "${DECRYPTED_WG_SECRETS}"
+
     # Create server directory
     server_dir="$OUTPUT_DIR/${name}"
     mkdir -p "$server_dir"
+
+    # Generate wg0.nix configuration
+    cat > "$server_dir/wg0.nix" << EOF
+{ config, ... }:
+
+let
+  sharedPeers = (import ../../modules/wireguard-peers.nix).peers;
+  # Filter out self from peers list
+  filteredPeers = builtins.filter 
+    (peer: peer.allowedIPs != [ "${wg_private_ip}/32" ]) 
+    sharedPeers;
+in
+{
+  networking.wireguard.interfaces.wg0 = {
+    ips = [ "${wg_private_ip}/24" ];
+    listenPort = 51820;
+    privateKeyFile = config.sops.secrets."servers/${name}/privateKey".path;
+    peers = filteredPeers;
+  };
+
+  sops = {
+    defaultSopsFile = ../../secrets/wireguard.json;
+    secrets = {
+      "servers/${name}/privateKey" = { };
+    };
+  };
+}
+EOF
+
+    # Add this server to wireguard-peers.nix
+    cat >> "modules/wireguard-peers.nix" << EOF
+    {
+      # ${name}
+      publicKey = "${wg_public_key}";
+      allowedIPs = [ "${wg_private_ip}/32" ];
+      endpoint = "${public_ip}:51820";
+      persistentKeepalive = 25;
+    }
+EOF
 
     # Generate default.nix for this server
     cat > "$server_dir/default.nix" << EOF
@@ -227,10 +321,17 @@ EOF
     ((counter++))
 done < <(echo "$SERVERS")
 
-# Encrypt the final secrets file
-echo "Encrypting secrets file..." >&2
-sops --encrypt "${DECRYPTED_SECRETS}" > "${SSH_SECRETS_FILE}"
-rm "${DECRYPTED_SECRETS}"
+# Close the shared peers configuration
+cat >> "modules/wireguard-peers.nix" << EOF
+  ];
+}
+EOF
+
+# Encrypt the final secrets files
+echo "Encrypting secrets files..." >&2
+sops --encrypt "${DECRYPTED_SSH_SECRETS}" > "${SSH_SECRETS_FILE}"
+sops --encrypt "${DECRYPTED_WG_SECRETS}" > "${WG_SECRETS_FILE}"
+rm "${DECRYPTED_SSH_SECRETS}" "${DECRYPTED_WG_SECRETS}"
 
 echo "Configuration generation complete"
 echo "Generated configurations for $(echo "$SERVERS" | wc -l) servers"

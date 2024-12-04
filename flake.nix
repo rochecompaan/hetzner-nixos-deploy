@@ -58,13 +58,6 @@
           text = builtins.readFile ./scripts/generate-wireguard-config.sh;
         };
 
-        generate-wireguard-interface = pkgs.writeShellApplication {
-          name = "generate-wireguard-interface";
-          runtimeInputs = with pkgs; [
-            jq
-          ];
-          text = builtins.readFile ./scripts/generate-wireguard-interface.sh;
-        };
 
         generate-server-config = pkgs.writeShellApplication {
           name = "generate-server-config";
