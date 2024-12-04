@@ -20,10 +20,10 @@ SUBNET_BASE=$(get_subnet_base "$WG_SUBNET")
 generate_wireguard_keypair() {
     local private_key
     local public_key
-    
+
     private_key=$(wg genkey)
     public_key=$(echo "${private_key}" | wg pubkey)
-    
+
     echo "{\"privateKey\": \"${private_key}\", \"publicKey\": \"${public_key}\"}"
 }
 
@@ -161,7 +161,7 @@ while read -r server_json; do
 
     # Generate SSH host keys
     temp_dir=$(mktemp -d)
-    
+
     # Generate keys quietly
     ssh-keygen -t rsa -b 4096 -N "" -C "$name" -f "$temp_dir/ssh_host_rsa_key" -q
     ssh-keygen -t ed25519 -N "" -C "$name" -f "$temp_dir/ssh_host_ed25519_key" -q
@@ -224,16 +224,16 @@ while read -r server_json; do
 
     # Generate WireGuard configuration
     echo "Generating WireGuard configuration..." >&2
-    
+
     # Generate WireGuard keypair
     keypair=$(generate_wireguard_keypair)
     wg_private_key=$(echo "${keypair}" | jq -r '.privateKey')
     wg_public_key=$(echo "${keypair}" | jq -r '.publicKey')
-    
+
     # Generate WireGuard private IP
     wg_private_ip="${SUBNET_BASE}.0.${counter}"
     ((counter++))
-    
+
     # Update WireGuard private key in secrets file
     jq --arg server "$name" \
        --arg private_key "$wg_private_key" \
@@ -251,8 +251,8 @@ while read -r server_json; do
 let
   sharedPeers = (import ../../modules/wireguard-peers.nix).peers;
   # Filter out self from peers list
-  filteredPeers = builtins.filter 
-    (peer: peer.allowedIPs != [ "${wg_private_ip}/32" ]) 
+  filteredPeers = builtins.filter
+    (peer: peer.allowedIPs != [ "${wg_private_ip}/32" ])
     sharedPeers;
 in
 {
