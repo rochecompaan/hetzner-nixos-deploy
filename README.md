@@ -198,11 +198,6 @@ For detailed instructions, follow the setup phases below.
        };
 
        defaultGateway = "123.45.67.1";
-
-       # WireGuard configuration
-       wg0 = {
-         privateIP = "172.16.0.1";
-       };
      };
    }
    ```
