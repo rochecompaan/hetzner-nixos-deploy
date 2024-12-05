@@ -2,6 +2,7 @@
 
 set -e
 
+
 REMOTE_SERVER="$1"
 HOSTNAME="$2"
 REMOTE_USER="root"

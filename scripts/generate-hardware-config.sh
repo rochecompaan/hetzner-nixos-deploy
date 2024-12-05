@@ -2,6 +2,7 @@
 
 set -e
 
+
 REMOTE_SERVER="$1"
 HOSTNAME="$2"
 REMOTE_USER="root"
@@ -29,16 +30,11 @@ if [ "$REMOTE_HOSTNAME" != "nixos-installer" ]; then
         /root/kexec/run
 EOF
 
-  echo "Waiting for NixOS installer to become available..."
-  while true; do
-      REMOTE_HOSTNAME=$(ssh -o ConnectTimeout=10 "$REMOTE_USER@$REMOTE_SERVER" "hostname")
-      if [ "$REMOTE_HOSTNAME" = "nixos-installer" ]; then
-          echo "Successfully booted into NixOS installer"
-          break
-      fi
-      echo "Waiting for NixOS installer to become available..."
-      sleep 10
-  done
+    # Wait for server to become available with exponential backoff
+    if ! wait_for_ssh "$REMOTE_SERVER" "$REMOTE_USER" "nixos-installer"; then
+        echo "Failed to connect to NixOS installer"
+        exit 1
+    fi
 
 fi
 

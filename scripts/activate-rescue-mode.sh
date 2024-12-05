@@ -3,6 +3,7 @@
 set -e
 set -o pipefail
 
+
 # Default values
 BOOT_NIXOS=false
 HETZNER_API_BASE_URL="https://robot-ws.your-server.de"
@@ -85,12 +86,12 @@ ssh-keygen -R "$SERVER_IP"
 echo "Pausing for hardware reset to kick in for $SERVER_IP..."
 sleep 30
 
-echo -n "Waiting for $SERVER_IP to come back online..."
-timeout 180 bash -c \
-  "until nc -z $SERVER_IP 22 2>/dev/null; do echo -n '.'; sleep 1; done"
-echo " connected!"
+if ! wait_for_ssh "$SERVER_IP" "root"; then
+    echo "Failed to connect to server after reset"
+    exit 1
+fi
 
-echo "$SERVER_IP is back online."
+echo "$SERVER_IP is back online"
 
 if [ "$BOOT_NIXOS" = true ]; then
     echo "Booting into NixOS installer..."

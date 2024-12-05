@@ -2,6 +2,7 @@
 
 set -euo pipefail
 
+
 # Function to show usage
 usage() {
     echo "Usage: $0 --name NAME --endpoint ENDPOINT --public-key PUBLIC_KEY --private-ip PRIVATE_IP"

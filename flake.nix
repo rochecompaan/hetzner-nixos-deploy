@@ -24,30 +24,43 @@
         activate-rescue-mode = pkgs.writeShellApplication {
           name = "activate-rescue-mode";
           runtimeInputs = with pkgs; [
+            bash
             curl
             netcat
             sops-nix
           ];
-          text = builtins.readFile ./scripts/activate-rescue-mode.sh;
+          text = ''
+            ${builtins.readFile ./lib/common.sh}
+            ${builtins.readFile ./scripts/activate-rescue-mode.sh}
+          '';
         };
 
         generate-disko-config = pkgs.writeShellApplication {
           name = "generate-disko-config";
           runtimeInputs = with pkgs; [
+            bash
             curl
             yq
             sops-nix
           ];
-          text = builtins.readFile ./scripts/generate-disko-config.sh;
+          text = ''
+            ${builtins.readFile ./lib/common.sh}
+            ${builtins.readFile ./scripts/generate-disko-config.sh}
+          '';
         };
 
         generate-hardware-config = pkgs.writeShellApplication {
           name = "generate-hardware-config";
           runtimeInputs = with pkgs; [
+            bash
             curl
             sops-nix
+            jq
           ];
-          text = builtins.readFile ./scripts/generate-hardware-config.sh;
+          text = ''
+            ${builtins.readFile ./lib/common.sh}
+            ${builtins.readFile ./scripts/generate-hardware-config.sh}
+          '';
         };
 
         generate-wireguard-config = pkgs.writeShellApplication {
@@ -64,6 +77,7 @@
           runtimeInputs = with pkgs; [
             curl
             jq
+            bash
           ];
           text = builtins.readFile ./scripts/generate-server-config.sh;
         };
@@ -85,7 +99,10 @@
             sops
             nixfmt
           ];
-          text = builtins.readFile ./scripts/add-wireguard-admin.sh;
+          text = ''
+            ${builtins.readFile ./lib/common.sh}
+            ${builtins.readFile ./scripts/add-wireguard-admin.sh}
+          '';
         };
       };
 

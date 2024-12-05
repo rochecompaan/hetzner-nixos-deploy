@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+
 # Default values
 PATTERN=""
 OVERWRITE=false
