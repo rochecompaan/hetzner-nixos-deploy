@@ -31,13 +31,13 @@ EOF
 
   echo "Waiting for NixOS installer to become available..."
   while true; do
-      REMOTE_HOSTNAME=$(ssh -o ConnectTimeout=5 "$REMOTE_USER@$REMOTE_SERVER" "hostname")
+      REMOTE_HOSTNAME=$(ssh -o ConnectTimeout=10 "$REMOTE_USER@$REMOTE_SERVER" "hostname")
       if [ "$REMOTE_HOSTNAME" = "nixos-installer" ]; then
           echo "Successfully booted into NixOS installer"
           break
       fi
       echo "Waiting for NixOS installer to become available..."
-      sleep 5
+      sleep 10
   done
 
 fi
