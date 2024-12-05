@@ -81,8 +81,9 @@ update_peers_module() {
           result.formatted
       " > "$temp_file"
 
-    # Move the temporary file to the final location
-    mv "$temp_file" "$final_file"
+    # Format using nixfmt and move to final location
+    nixfmt < "$temp_file" > "$temp_file.formatted"
+    mv "$temp_file.formatted" "$final_file"
 }
 
 # Parse command line arguments

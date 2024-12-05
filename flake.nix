@@ -83,6 +83,7 @@
           runtimeInputs = with pkgs; [
             jq
             sops
+            nixfmt
           ];
           text = builtins.readFile ./scripts/add-wireguard-admin.sh;
         };
