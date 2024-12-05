@@ -275,7 +275,7 @@ EOF
     # Add this server to wireguard-peers.nix
     cat >> "modules/wireguard-peers.nix" << EOF
     {
-      # ${name}
+      name = "${name}";
       publicKey = "${wg_public_key}";
       allowedIPs = [ "${wg_private_ip}/32" ];
       endpoint = "${public_ip}:51820";

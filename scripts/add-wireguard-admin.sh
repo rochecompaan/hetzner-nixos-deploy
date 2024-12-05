@@ -32,6 +32,7 @@ update_peers_module() {
           # Format a peer as a nix expression string
           formatPeer = peer: ''
             {
+              name = \"\${peer.name}\";
               publicKey = \"\${peer.publicKey}\";
               allowedIPs = [ \"\${builtins.head peer.allowedIPs}\" ];
               endpoint = \"\${peer.endpoint}\";
