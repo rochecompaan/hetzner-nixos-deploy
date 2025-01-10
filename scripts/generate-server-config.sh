@@ -216,7 +216,7 @@ while read -r server_json; do
     echo "Fetching subnet information for $public_ip..." >&2
     RESPONSE=$(curl -s -u "$ROBOT_USERNAME:$ROBOT_PASSWORD" \
         "https://robot-ws.your-server.de/ip/$public_ip")
-    http_status_check "$RESPONSE"
+    check_json_error "$RESPONSE"
     ip_info="$RESPONSE"
 
     # Extract subnet mask and gateway

@@ -51,13 +51,13 @@ echo "Activating rescue mode for $SERVER_IP..."
 RESPONSE=$(curl -s -u "$USERNAME:$PASSWORD" \
   -d "os=linux&$FINGERPRINTS" \
   "$HETZNER_API_BASE_URL/boot/$SERVER_IP/rescue")
-http_status_check "$RESPONSE"
+check_json_error "$RESPONSE"
 
 echo "Executing hardware reset for $SERVER_IP..."
 RESPONSE=$(curl -s -u "$USERNAME:$PASSWORD" \
   -d "type=hw" \
   "$HETZNER_API_BASE_URL/reset/$SERVER_IP")
-http_status_check "$RESPONSE"
+check_json_error "$RESPONSE"
 
 echo "Removing $SERVER_IP from local known_hosts file..."
 ssh-keygen -R "$SERVER_IP"
