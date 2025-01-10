@@ -28,6 +28,7 @@
             curl
             netcat
             sops-nix
+            yq
           ];
           text = ''
             ${builtins.readFile ./lib/common.sh}
@@ -77,9 +78,13 @@
           runtimeInputs = with pkgs; [
             curl
             jq
+            yq
             bash
           ];
-          text = builtins.readFile ./scripts/generate-server-config.sh;
+          text = ''
+            ${builtins.readFile ./lib/common.sh}
+            ${builtins.readFile ./scripts/generate-server-config.sh}
+          '';
         };
 
         deploy-nixos = pkgs.writeShellApplication {

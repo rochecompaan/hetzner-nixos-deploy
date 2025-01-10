@@ -107,13 +107,17 @@ safe_jq() {
 # Get servers matching pattern from Hetzner API
 echo "Fetching servers" >&2
 # First get all servers
-ALL_SERVERS=$(curl -s -u "$ROBOT_USERNAME:$ROBOT_PASSWORD" \
-    "https://robot-ws.your-server.de/server" | \
-    safe_jq -r '.[] | .server')
+RESPONSE=$(curl -s -u "$ROBOT_USERNAME:$ROBOT_PASSWORD" \
+    "https://robot-ws.your-server.de/server")
+echo "RESPONSE: $RESPONSE"
+check_json_error "$RESPONSE"
+ALL_SERVERS=$(echo "$RESPONSE" | safe_jq -r '.[] | .server')
+echo "ALL_SERVERS: $ALL_SERVERS"
 
 # Then filter by pattern
 SERVERS=$(echo "$ALL_SERVERS" | safe_jq -c --arg pattern "$PATTERN" \
     "select(.server_name | startswith(\$pattern))")
+echo "SERVERS: $SERVERS"
 
 # Debug output
 echo "Filtered servers matching pattern '$PATTERN':"
@@ -210,8 +214,10 @@ while read -r server_json; do
 
     # Get subnet information from Hetzner API
     echo "Fetching subnet information for $public_ip..." >&2
-    ip_info=$(curl -s -u "$ROBOT_USERNAME:$ROBOT_PASSWORD" \
+    RESPONSE=$(curl -s -u "$ROBOT_USERNAME:$ROBOT_PASSWORD" \
         "https://robot-ws.your-server.de/ip/$public_ip")
+    http_status_check "$RESPONSE"
+    ip_info="$RESPONSE"
 
     # Extract subnet mask and gateway
     subnet_mask=$(echo "$ip_info" | safe_jq -r '.ip.mask')

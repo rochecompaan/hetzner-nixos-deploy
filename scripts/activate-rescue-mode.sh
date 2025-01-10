@@ -33,34 +33,13 @@ if [ -z "$SERVER_IP" ]; then
   exit 1
 fi
 
-http_status_check() {
-    local RESPONSE=$1
-    local HTTP_STATUS
-    HTTP_STATUS=$(echo "$RESPONSE" | yq -r '.error.status')
-    
-    if [[ $HTTP_STATUS =~ ^[4-9][0-9]{2}$ ]]; then
-        echo "Response: $RESPONSE"
-        case $HTTP_STATUS in
-            401)
-                echo "Error: Unauthorized access. Please check your credentials."
-                ;;
-            400)
-                echo "Error: Invalid input. Please review the request parameters and try again."
-                ;;
-            *)
-                echo "Error: HTTP status code $HTTP_STATUS encountered."
-                ;;
-        esac
-        exit 1
-    fi
-}
 
 # Extract fingerprints from sops.yaml
 FINGERPRINTS=$(yq -r '.fingerprints | map("authorized_key[]="+.) | join("&")' .sops.yaml)
 
 echo "Checking current rescue mode state for $SERVER_IP..."
 RESPONSE=$(curl -s -u "$USERNAME:$PASSWORD" "$HETZNER_API_BASE_URL/boot/$SERVER_IP/rescue")
-http_status_check "$RESPONSE"
+check_json_error "$RESPONSE"
 
 RESCUE_STATE=$(echo "$RESPONSE" | yq -r '.rescue.active')
 if [[ $RESCUE_STATE == "true" ]]; then

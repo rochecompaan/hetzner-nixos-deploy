@@ -1,5 +1,31 @@
 #!/usr/bin/env bash
 
+# Check JSON response for error field
+# Usage: check_json_error "$(curl ...)"
+check_json_error() {
+    local RESPONSE=$1
+    
+    # Check if response is valid JSON
+    if ! echo "$RESPONSE" | jq empty 2>/dev/null; then
+        echo "Error: Invalid JSON response"
+        echo "Response: $RESPONSE"
+        exit 1
+    fi
+    
+    # Check response type and handle accordingly
+    if echo "$RESPONSE" | jq 'type == "object"' | grep -q true; then
+        # For objects, check for error field
+        if echo "$RESPONSE" | jq 'has("error")' | grep -q true; then
+            echo "Error response received:"
+            echo "$RESPONSE" | jq .
+            exit 1
+        fi
+    fi
+    
+    # If we get here, assume success
+    return 0
+}
+
 # Function to attempt SSH connection with exponential backoff
 # Usage: wait_for_ssh <host> <user> [expected_hostname]
 wait_for_ssh() {
