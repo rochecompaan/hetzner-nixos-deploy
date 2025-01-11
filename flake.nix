@@ -16,10 +16,6 @@
       };
     in
     rec {
-      lib = {
-        wireguard = import ./lib/wireguard.nix { inherit (pkgs) lib; };
-      };
-
       packages = {
         activate-rescue-mode = pkgs.writeShellApplication {
           name = "activate-rescue-mode";
