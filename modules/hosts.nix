@@ -18,8 +18,8 @@
         nixosSystem {
           inherit specialArgs;
           modules = [
-            inputs.disko.nixosmodules.disko
-            inputs.sops-nix.nixosmodules.sops
+            inputs.disko.nixosModules.disko
+            inputs.sops-nix.nixosModules.sops
             ./${hostname}
           ];
           system = "x86_64-linux";
