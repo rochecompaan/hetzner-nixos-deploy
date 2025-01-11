@@ -204,7 +204,9 @@ For detailed instructions, follow the setup phases below.
    }
    ```
 
-   The script will automatically download `modules/base.nix` if it doesn't exist. You can customize both the generated configuration and `modules/base.nix` as needed for your specific requirements.
+   The script will automatically download `modules/base.nix` if it doesn't
+   exist. You can customize both the generated configuration and
+   `modules/base.nix` as needed for your specific requirements.
 
 3. Add the generated age keys to `.sops.yaml`:
 
