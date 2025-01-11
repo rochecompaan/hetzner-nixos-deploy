@@ -204,7 +204,13 @@ For detailed instructions, follow the setup phases below.
    }
    ```
 
-   You can then customize this generated configuration as needed.
+   To use `modules/base.nix` in your configuration, download it with:
+
+   ```bash
+   curl -o modules/base.nix https://raw.githubusercontent.com/rochecompaan/hetzner-nixos-deploy/main/modules/base.nix
+   ```
+
+   Customize the generated configuration and `modules/base.nix` as needed.
 
 3. Add the generated age keys to `.sops.yaml`:
 
