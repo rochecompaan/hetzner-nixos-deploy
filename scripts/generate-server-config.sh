@@ -60,7 +60,13 @@ OUTPUT_DIR="hosts"
 SSH_KEYS_DIR="server-public-ssh-keys"
 SSH_SECRETS_FILE="secrets/server-private-ssh-keys.json"
 WG_SECRETS_FILE="secrets/wireguard.json"
-mkdir -p "$OUTPUT_DIR" "$SSH_KEYS_DIR"
+mkdir -p "$OUTPUT_DIR" "$SSH_KEYS_DIR" modules
+
+# Download base.nix if it doesn't exist
+if [ ! -f "modules/base.nix" ]; then
+    echo "Downloading base.nix module..."
+    curl -o modules/base.nix https://raw.githubusercontent.com/rochecompaan/hetzner-nixos-deploy/main/modules/base.nix
+fi
 
 # Create temporary decrypted secrets files
 DECRYPTED_SSH_SECRETS=$(mktemp -p secrets --suffix=".json")
