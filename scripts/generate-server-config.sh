@@ -66,6 +66,12 @@ mkdir -p "$OUTPUT_DIR" "$SSH_KEYS_DIR"
 DECRYPTED_SSH_SECRETS=$(mktemp -p secrets --suffix=".json")
 DECRYPTED_WG_SECRETS=$(mktemp -p secrets --suffix=".json")
 
+# Ensure cleanup of temporary files
+cleanup() {
+    rm -f "${DECRYPTED_SSH_SECRETS}" "${DECRYPTED_WG_SECRETS}"
+}
+trap cleanup EXIT
+
 if [[ -f "${SSH_SECRETS_FILE}" ]]; then
     sops --decrypt "${SSH_SECRETS_FILE}" > "${DECRYPTED_SSH_SECRETS}"
 else
@@ -333,9 +339,19 @@ EOF
 
 # Encrypt the final secrets files
 echo "Encrypting secrets files..." >&2
-sops --encrypt "${DECRYPTED_SSH_SECRETS}" > "${SSH_SECRETS_FILE}"
-sops --encrypt "${DECRYPTED_WG_SECRETS}" > "${WG_SECRETS_FILE}"
-rm "${DECRYPTED_SSH_SECRETS}" "${DECRYPTED_WG_SECRETS}"
+if ! sops --encrypt "${DECRYPTED_SSH_SECRETS}" > "${SSH_SECRETS_FILE}.tmp"; then
+    echo "Failed to encrypt SSH secrets" >&2
+    rm -f "${SSH_SECRETS_FILE}.tmp"
+    exit 1
+fi
+mv "${SSH_SECRETS_FILE}.tmp" "${SSH_SECRETS_FILE}"
+
+if ! sops --encrypt "${DECRYPTED_WG_SECRETS}" > "${WG_SECRETS_FILE}.tmp"; then
+    echo "Failed to encrypt WireGuard secrets" >&2
+    rm -f "${WG_SECRETS_FILE}.tmp"
+    exit 1
+fi
+mv "${WG_SECRETS_FILE}.tmp" "${WG_SECRETS_FILE}"
 
 echo "Configuration generation complete"
 echo "Generated configurations for $(echo "$SERVERS" | wc -l) servers"
