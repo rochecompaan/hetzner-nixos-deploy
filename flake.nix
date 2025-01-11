@@ -2,7 +2,7 @@
   description = "Hetzner-specific NixOS deployment scripts and expressions";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-23.11";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
     sops-nix.url = "github:Mic92/sops-nix";
     disko.url = "github:nix-community/disko";
   };
@@ -98,7 +98,7 @@
           runtimeInputs = with pkgs; [
             jq
             sops
-            nixfmt
+            nixfmt-rfc-style
           ];
           text = ''
             ${builtins.readFile ./lib/common.sh}
@@ -124,7 +124,10 @@
           stdenv.cc.cc.lib
           curl
           wireguard-tools
+          nixfmt-rfc-style
         ] ++ builtins.attrValues self.packages;
       };
+
+      formatter = pkgs.nixfmt-rfc-style;
     };
 }
