@@ -99,6 +99,10 @@ in
     size = 8196; # Size in MB (8GB)
   }];
 
+  boot.swraid.mdadmConf = ''
+    MAILADDR root@localhost
+  '';
+
   environment.systemPackages = with pkgs; [
     vim
     git
