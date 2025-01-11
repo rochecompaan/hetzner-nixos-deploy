@@ -105,6 +105,13 @@
             ${builtins.readFile ./scripts/add-wireguard-admin.sh}
           '';
         };
+
+        setup-servers = pkgs.writeShellApplication {
+          name = "setup-servers";
+          text = ''
+            ${builtins.readFile ./scripts/setup-servers.sh}
+          '';
+        };
       };
 
       apps = builtins.mapAttrs
