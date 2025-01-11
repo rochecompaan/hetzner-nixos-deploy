@@ -68,6 +68,13 @@ if [ ! -f "modules/base.nix" ]; then
     curl -o modules/base.nix https://raw.githubusercontent.com/rochecompaan/hetzner-nixos-deploy/main/modules/base.nix
 fi
 
+# Download hosts.nix and copy it to hosts/default.nix
+mkdir -p hosts
+if [ ! -f "hosts/default.nix" ]; then
+    echo "Downloading hosts.nix module..."
+    curl -o hosts/default.nix https://raw.githubusercontent.com/rochecompaan/hetzner-nixos-deploy/main/modules/hosts.nix
+fi
+
 # Create temporary decrypted secrets files
 DECRYPTED_SSH_SECRETS=$(mktemp -p secrets --suffix=".json")
 DECRYPTED_WG_SECRETS=$(mktemp -p secrets --suffix=".json")
