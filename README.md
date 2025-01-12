@@ -421,11 +421,15 @@ automatically.
 ```
 .
 ├── modules/
-│   └── base.nix           # Base system configuration
+│   └── base.nix                       # Base system configuration
 ├── secrets/
-│   └── wireguard.json    # WireGuard keys and configurations
-└── hosts/               # Server-specific configurations
+│   ├── hetnzer.json                   # Hetzner username and password
+│   ├── server-private-ssh-keys.json   # Server private ssh keys
+│   └── wireguard.json                 # WireGuard keys and configurations
+└── hosts/                             # Server-specific configurations
+    ├── default.nix                    # Generates host nixos configurations
     └── <hostname>/
+            ├── default.nix
             ├── disko.nix
             ├── hardware-configuration.nix
             └── wg0.nix
