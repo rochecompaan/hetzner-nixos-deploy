@@ -136,10 +136,12 @@ For detailed instructions, follow the setup phases below.
    age-keygen -y ~/.config/sops/age/keys.txt
    ```
 
-   The age key pair is used by SOPS to encrypt/decrypt secrets. The public key goes in
-   `.sops.yaml` while the private key stays in `~/.config/sops/age/keys.txt`.
+   The age key pair is used by SOPS to encrypt/decrypt secrets. The public key
+   goes in `.sops.yaml` while the private key stays in
+   `~/.config/sops/age/keys.txt`.
 
-   For more details on using SOPS with NixOS, see the [sops-nix documentation](https://github.com/Mic92/sops-nix).
+   For more details on using SOPS with NixOS, see the
+   [sops-nix documentation](https://github.com/Mic92/sops-nix).
 
 ### 2. Server Discovery & Configuration
 
@@ -165,7 +167,8 @@ For detailed instructions, follow the setup phases below.
    generate-server-config --subnet "10.0.0.0/16" "myproject"
    ```
 
-   This will create a NixOS configuration for each server in the `hosts/` directory. The script:
+   This will create a NixOS configuration for each server in the `hosts/`
+   directory. The script:
 
    - Fetches server details from the Hetzner Robot API
    - Creates a directory structure for each server
@@ -259,13 +262,15 @@ automatically.
 
 ### 4. Network Access Setup
 
-The server configuration process handles both SSH and WireGuard setup automatically.
+The server configuration process handles both SSH and WireGuard setup
+automatically.
 
 1. SSH Access Configuration:
 
    SSH keys are used for direct server access and are managed through the
-   `authorized_keys/` directory. The base system configuration (`modules/base.nix`)
-   automatically adds these keys to the `nix` user's authorized keys.
+   `authorized_keys/` directory. The base system configuration
+   (`modules/base.nix`) automatically adds these keys to the `nix` user's
+   authorized keys.
 
    a. Using an Existing SSH Key:
 
@@ -295,7 +300,8 @@ The server configuration process handles both SSH and WireGuard setup automatica
 
 2. WireGuard Network Setup:
 
-   The `generate-server-config` script automatically handles WireGuard configuration during server setup:
+   The `generate-server-config` script automatically handles WireGuard
+   configuration during server setup:
 
    - Generates unique WireGuard keypairs for each server
    - Assigns sequential IPs in the 172.16.0.0/16 range
@@ -303,7 +309,8 @@ The server configuration process handles both SSH and WireGuard setup automatica
    - Maintains a shared peers configuration in `modules/wireguard-peers.nix`
    - Encrypts private keys in `secrets/wireguard.json`
 
-   The generated configurations enable secure communication between servers and administrators.
+   The generated configurations enable secure communication between servers and
+   administrators.
 
 3. Adding WireGuard Admin Access:
 
