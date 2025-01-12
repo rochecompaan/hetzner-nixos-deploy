@@ -1,4 +1,4 @@
-# hetzner-nixos-deploy
+# Hetzner Nixos Deploy
 
 A collection of NixOS modules and utilities for deploying and managing bare
 metal servers on Hetzner. This repository provides reusable components that can
