@@ -60,6 +60,7 @@ For detailed instructions, follow the setup phases below.
    - Basic understanding of NixOS configuration
 
 2. Create Project Flake
+
    Create a new flake.nix in your project directory:
 
    ```nix
