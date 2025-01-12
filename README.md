@@ -69,6 +69,8 @@ For detailed instructions, follow the setup phases below.
      inputs = {
        nixpkgs.url = "github:NixOS/nixpkgs";
        flake-parts.url = "github:hercules-ci/flake-parts";
+       disko.url = "github:nix-community/disko";
+       sops-nix.url = "github:Mic92/sops-nix";
        hetzner-deploy-scripts.url = "github:rochecompaan/hetzner-nixos-deploy";
      };
 
