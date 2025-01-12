@@ -435,20 +435,6 @@ automatically.
             └── wg0.nix
 ```
 
-## Development
-
-A development shell with required tools is provided:
-
-```bash
-nix develop
-```
-
-This gives you access to:
-
-- `netcat` for network operations
-- `sops` for secrets management
-- `yq` and `jq` for YAML/JSON processing
-
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for
