@@ -107,6 +107,20 @@ For detailed instructions, follow the setup phases below.
 
    All hetzner-nixos-deploy scripts will be available in your PATH.
 
+   You can use [direnv](https://direnv.net/) to automatically enter you
+   development shell when changing into your project directory.
+
+   To automatically create the dev shell, you need a `.envrc` file in your
+   project with `use flake`, e.g.:
+
+   ```bash
+   #!/usr/bin/env bash
+
+   if type nix-shell >/dev/null 2>&1; then
+       use flake
+   fi
+   ```
+
 3. SOPS Configuration
 
    Create a `.sops.yaml` file in your project root to configure SOPS encryption:
