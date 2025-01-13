@@ -70,17 +70,14 @@ trap cleanup EXIT
 # Create SSH directory
 install -d -m755 "$TEMP_DIR/etc/ssh"
 
-# Get server name from flake target
-SERVER_NAME=${FLAKE_TARGET##*.#}
-
 # Decrypt and install SSH host keys
-echo "Installing SSH host keys for $SERVER_NAME..." >&2
+echo "Installing SSH host keys for $HOSTNAME..." >&2
 sops --decrypt secrets/server-private-ssh-keys.json | \
-    jq -r --arg name "$SERVER_NAME" \
+    jq -r --arg name "$HOSTNAME" \
     '.[$name].rsa' > "$TEMP_DIR/etc/ssh/ssh_host_rsa_key"
 
 sops --decrypt secrets/server-private-ssh-keys.json | \
-    jq -r --arg name "$SERVER_NAME" \
+    jq -r --arg name "$HOSTNAME" \
     '.[$name].ed25519' > "$TEMP_DIR/etc/ssh/ssh_host_ed25519_key"
 
 # Set correct permissions
