@@ -4,6 +4,21 @@ A collection of NixOS modules and utilities for deploying and managing bare
 metal servers on Hetzner. This repository provides reusable components that can
 be integrated into project-specific NixOS configurations.
 
+## Features
+
+- Easy activation of rescue mode for Hetzner servers
+- Hardware configuration generation
+- Disk partitioning configuration using disko
+- Initial deployment with [NixOS Anywhere](https://github.com/nix-community/nixos-anywhere/)
+- Updates with [deploy-rs](https://github.com/serokell/deploy-rs)
+- WireGuard key management and peer configuration
+- Base system configuration including:
+  - Network setup with WireGuard VPN
+  - SSH server configuration
+  - Basic security settings
+  - User management
+  - Common system packages
+
 ## Quick Start Summary
 
 1. **Initial Setup**
@@ -34,19 +49,6 @@ be integrated into project-specific NixOS configurations.
    - Subsequent updates with deploy-rs
 
 For detailed instructions, follow the setup phases below.
-
-## Features
-
-- Easy activation of rescue mode for Hetzner servers
-- Hardware configuration generation
-- Disk partitioning configuration using disko
-- WireGuard key management and peer configuration
-- Base system configuration including:
-  - Network setup with WireGuard VPN
-  - SSH server configuration
-  - Basic security settings
-  - User management
-  - Common system packages
 
 ## Setup Phases
 
