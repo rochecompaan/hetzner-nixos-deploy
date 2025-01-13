@@ -1,8 +1,10 @@
 # Hetzner Nixos Deploy
 
-A collection of NixOS modules and utilities for deploying and managing bare
-metal servers on Hetzner. This repository provides reusable components that can
-be integrated into project-specific NixOS configurations.
+A collection of scripts and modules that wrap great existing tools like `NixOS
+Anywhere` and `deploy-rs`, adding the necessary glue to make deployment and
+maintenance of bare metal servers on Hetzner easier. This repository provides
+reusable components that can be integrated into project-specific NixOS
+configurations.
 
 ## Features
 
