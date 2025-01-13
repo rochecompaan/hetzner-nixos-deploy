@@ -25,8 +25,8 @@ done
 
 # Validate required arguments
 if [ -z "$HOSTNAME" ]; then
-    echo "Usage: $0 <hostname> [extra nixos-anywhere args...]" >&2
-    echo "Example: $0 myserver" >&2
+    echo "Usage: deploy-nixos <hostname> [extra nixos-anywhere args...]" >&2
+    echo "Example: deploy-nixos myserver" >&2
     exit 1
 fi
 
