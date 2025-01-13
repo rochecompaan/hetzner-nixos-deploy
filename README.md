@@ -376,7 +376,7 @@ automatically.
 2. Initial Deployment:
 
    ```bash
-   deploy-nixos --flake .#<hostname> --target root@<server-ip>
+   deploy-nixos <hostname>
    ```
 
    After deployment:

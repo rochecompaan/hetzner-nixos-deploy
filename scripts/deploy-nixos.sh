@@ -2,34 +2,51 @@
 set -euo pipefail
 
 # Default values
-FLAKE_TARGET=""
-TARGET_HOST=""
+HOSTNAME=""
 EXTRA_ARGS=()
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --flake)
-            FLAKE_TARGET="$2"
-            shift 2
-            ;;
-        --target)
-            TARGET_HOST="$2"
-            shift 2
+        -*)
+            EXTRA_ARGS+=("$1")
+            shift
             ;;
         *)
-            EXTRA_ARGS+=("$1")
+            if [ -z "$HOSTNAME" ]; then
+                HOSTNAME="$1"
+            else
+                EXTRA_ARGS+=("$1")
+            fi
             shift
             ;;
     esac
 done
 
 # Validate required arguments
-if [ -z "$FLAKE_TARGET" ] || [ -z "$TARGET_HOST" ]; then
-    echo "Usage: $0 --flake <flake-target> --target <user@host> [extra nixos-anywhere args...]" >&2
-    echo "Example: $0 --flake .#myserver --target root@1.2.3.4" >&2
+if [ -z "$HOSTNAME" ]; then
+    echo "Usage: $0 <hostname> [extra nixos-anywhere args...]" >&2
+    echo "Example: $0 myserver" >&2
     exit 1
 fi
+
+# Check if host configuration exists
+if [ ! -f "hosts/${HOSTNAME}/default.nix" ]; then
+    echo "Error: Configuration for host '${HOSTNAME}' not found in hosts/${HOSTNAME}/default.nix" >&2
+    exit 1
+fi
+
+# Extract IP address from host configuration
+IP_ADDRESS=$(grep -A 2 'address = ' "hosts/${HOSTNAME}/default.nix" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
+
+if [ -z "$IP_ADDRESS" ]; then
+    echo "Error: Could not find IP address in hosts/${HOSTNAME}/default.nix" >&2
+    exit 1
+fi
+
+# Set target host and flake
+TARGET_HOST="root@${IP_ADDRESS}"
+FLAKE_TARGET=".#${HOSTNAME}"
 
 # Create a temporary directory for secrets
 TEMP_DIR=$(mktemp -d)
