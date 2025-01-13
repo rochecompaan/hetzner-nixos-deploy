@@ -9,7 +9,8 @@ be integrated into project-specific NixOS configurations.
 - Easy activation of rescue mode for Hetzner servers
 - Hardware configuration generation
 - Disk partitioning configuration using disko
-- Initial deployment with [NixOS Anywhere](https://github.com/nix-community/nixos-anywhere/)
+- Initial deployment with
+  [NixOS Anywhere](https://github.com/nix-community/nixos-anywhere/)
 - Updates with [deploy-rs](https://github.com/serokell/deploy-rs)
 - WireGuard key management and peer configuration
 - Base system configuration including:
