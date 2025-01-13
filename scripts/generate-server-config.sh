@@ -290,9 +290,10 @@ in
   };
 
   sops = {
-    defaultSopsFile = ../../secrets/wireguard.json;
     secrets = {
-      "servers/${name}/privateKey" = { };
+      "servers/${name}/privateKey" = {
+        sopsFile = ../../secrets/wireguard.json;
+      };
     };
   };
 }
