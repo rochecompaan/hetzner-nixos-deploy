@@ -94,7 +94,11 @@ if [ "$use_raid" = true ]; then
           type = "gpt";
           partitions = {$([ "$disk_index" -eq 0 ] && cat << 'BOOT'
 
-            boot = {
+            BOOT = {
+              size = "1M";
+              type = "EF02"; # for grub MBR
+            };
+            ESP = {
               size = "1G";
               type = "EF00";
               content = {
