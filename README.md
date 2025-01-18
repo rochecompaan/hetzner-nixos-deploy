@@ -367,6 +367,12 @@ automatically.
    sudo wg-quick up ./wireguard/wg0.conf
    ```
 
+   NB! Add and entry to `.gitignore` for wireguard configs:
+
+   ```
+   ./wireguard/*.conf
+   ```
+
 ### 6. Deployment
 
 1. Pre-deployment Checklist:
