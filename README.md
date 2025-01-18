@@ -78,6 +78,7 @@ For detailed instructions, follow the setup phases below.
        disko.url = "github:nix-community/disko";
        sops-nix.url = "github:Mic92/sops-nix";
        hetzner-deploy-scripts.url = "github:rochecompaan/hetzner-nixos-deploy";
+       deploy-rs.url = "github:serokell/deploy-rs";
      };
 
      outputs =
@@ -91,6 +92,8 @@ For detailed instructions, follow the setup phases below.
              devShells.default = pkgs.mkShell {
                buildInputs = with pkgs; [
                  # your packages here
+                 wireguard-tools
+                 inputs.deploy-rs.packages.${pkgs.system}.deploy-rs
                ] ++ (builtins.attrValues inputs.hetzner-deploy-scripts.packages);
              };
            };
@@ -387,15 +390,6 @@ automatically.
    ```
 
 3. Subsequent Updates:
-   Add deploy-rs to your flake:
-
-   ```nix
-   {
-     inputs.deploy-rs.url = "github:serokell/deploy-rs";
-   }
-   ```
-
-   Deploy updates:
 
    ```bash
    deploy .#<hostname>
