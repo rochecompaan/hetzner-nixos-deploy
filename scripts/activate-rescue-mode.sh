@@ -37,7 +37,22 @@ fi
 # Extract fingerprints from sops.yaml
 FINGERPRINTS=$(yq -r '.fingerprints | map("authorized_key[]="+.) | join("&")' .sops.yaml)
 
+# Function to print curl command (with password masked)
+print_curl_command() {
+    local url="$1"
+    local data="$2"
+    echo "Debug: Executing curl command:"
+    if [ -n "$data" ]; then
+        echo "curl -u '$USERNAME:********' \\"
+        echo "  -d '$data' \\"
+        echo "  '$url'"
+    else
+        echo "curl -u '$USERNAME:********' '$url'"
+    fi
+}
+
 echo "Checking current rescue mode state for $SERVER_IP..."
+print_curl_command "$HETZNER_API_BASE_URL/boot/$SERVER_IP/rescue"
 RESPONSE=$(curl -s -u "$USERNAME:$PASSWORD" "$HETZNER_API_BASE_URL/boot/$SERVER_IP/rescue")
 check_json_error "$RESPONSE"
 
@@ -48,14 +63,18 @@ if [[ $RESCUE_STATE == "true" ]]; then
 fi
 
 echo "Activating rescue mode for $SERVER_IP..."
+DATA="os=linux&$FINGERPRINTS"
+print_curl_command "$HETZNER_API_BASE_URL/boot/$SERVER_IP/rescue" "$DATA"
 RESPONSE=$(curl -s -u "$USERNAME:$PASSWORD" \
-  -d "os=linux&$FINGERPRINTS" \
+  -d "$DATA" \
   "$HETZNER_API_BASE_URL/boot/$SERVER_IP/rescue")
 check_json_error "$RESPONSE"
 
 echo "Executing hardware reset for $SERVER_IP..."
+DATA="type=hw"
+print_curl_command "$HETZNER_API_BASE_URL/reset/$SERVER_IP" "$DATA"
 RESPONSE=$(curl -s -u "$USERNAME:$PASSWORD" \
-  -d "type=hw" \
+  -d "$DATA" \
   "$HETZNER_API_BASE_URL/reset/$SERVER_IP")
 check_json_error "$RESPONSE"
 
