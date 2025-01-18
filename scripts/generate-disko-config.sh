@@ -48,6 +48,16 @@ if [ "$disk_count" -eq 2 ]; then
     fi
 fi
 
+# Build the list of disk devices for GRUB
+disks_list=""
+while IFS= read -r disk_info; do
+    disk=$(echo "$disk_info" | cut -d',' -f1)
+    if [ -n "$disks_list" ]; then
+        disks_list="$disks_list "
+    fi
+    disks_list="$disks_list\"$disk\""
+done <<< "$disks"
+
 # Start of disko.nix content
 cat << EOF > "$DISKO_CONFIG_FILE"
 {
@@ -55,7 +65,7 @@ cat << EOF > "$DISKO_CONFIG_FILE"
     loader = {
       grub = {
         enable = true;
-        devices = [ "nodev" ];
+        devices = [ ${disks_list} ];
         efiSupport = true;
         efiInstallAsRemovable = true;
       };
