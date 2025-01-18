@@ -53,12 +53,14 @@ cat << EOF > "$DISKO_CONFIG_FILE"
 {
   boot = {
     loader = {
-      systemd-boot = {
+      grub = {
         enable = true;
+        devices = [ "nodev" ];
+        efiSupport = true;
+        efiInstallAsRemovable = true;
       };
       efi = {
-        canTouchEfiVariables = true;
-        efiSysMountPoint = "/boot";
+        efiSysMountPoint = "/boot/efi";
       };
     };
   };
@@ -88,7 +90,7 @@ if [ "$use_raid" = true ]; then
               content = {
                 type = "filesystem";
                 format = "vfat";
-                mountpoint = "/boot";
+                mountpoint = "/boot/efi";
               };
             };
 BOOT
