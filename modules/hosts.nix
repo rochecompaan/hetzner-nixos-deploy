@@ -43,16 +43,16 @@
         # Function to get IP from host's network interface config
         getHostIP = hostname:
           let
-            hostConfig = (import ./${hostname}/default.nix { inherit self config lib; }).networking;
+            networkConfig = (import ./${hostname}/default.nix { inherit self config lib; }).networking;
             # Get the first interface that has IPv4 addresses configured
             interface = lib.head (lib.attrNames 
               (lib.filterAttrs 
                 (name: value: value.ipv4.addresses != []) 
-                hostConfig.interfaces
+                networkConfig.interfaces
               ));
           in
             # Get the address from the first IPv4 configuration
-            (lib.head hostConfig.interfaces.${interface}.ipv4.addresses).address;
+            (lib.head networkConfig.interfaces.${interface}.ipv4.addresses).address;
 
         mkDeployNode = hostname: {
           name = hostname;
