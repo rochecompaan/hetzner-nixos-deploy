@@ -40,7 +40,7 @@ FINGERPRINTS=$(yq -r '.fingerprints | map("authorized_key[]="+.) | join("&")' .s
 # Function to print curl command (with password masked)
 print_curl_command() {
     local url="$1"
-    local data="$2"
+    local data="${2:-}"
     echo "Debug: Executing curl command:"
     if [ -n "$data" ]; then
         echo "curl -u '$USERNAME:********' \\"
