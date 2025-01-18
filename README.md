@@ -93,7 +93,7 @@ For detailed instructions, follow the setup phases below.
                buildInputs = with pkgs; [
                  # your packages here
                  wireguard-tools
-                 inputs.deploy-rs.packages.${pkgs.system}.deploy-rs
+                 deploy-rs
                ] ++ (builtins.attrValues inputs.hetzner-deploy-scripts.packages);
              };
            };
