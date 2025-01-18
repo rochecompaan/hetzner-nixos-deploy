@@ -36,7 +36,7 @@ update_peers_module() {
               name = \"\${peer.name}\";
               publicKey = \"\${peer.publicKey}\";
               allowedIPs = [ \"\${builtins.head peer.allowedIPs}\" ];
-              endpoint = \"\${peer.endpoint}\";
+              endpoint = \"\${peer.endpoint}:51820\";
               persistentKeepalive = \${toString peer.persistentKeepalive};
             }'';
 
