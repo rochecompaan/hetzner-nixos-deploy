@@ -100,7 +100,7 @@ if [ "$use_raid" = true ]; then
               content = {
                 type = "filesystem";
                 format = "vfat";
-                mountpoint = "\${disk_index == 0 ? \"/boot/efi\" : \"/boot-fallback/efi\"}";
+                mountpoint = "$([ "$disk_index" -eq 0 ] && echo "/boot/efi" || echo "/boot-fallback/efi")";
               };
             };
             raid = {
