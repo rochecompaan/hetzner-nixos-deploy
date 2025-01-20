@@ -69,9 +69,6 @@ cat << EOF > "$DISKO_CONFIG_FILE"
         efiSupport = true;
         efiInstallAsRemovable = true;
       };
-      efi = {
-        efiSysMountPoint = "/boot/efi";
-      };
     };
   };
 
@@ -92,8 +89,7 @@ if [ "$use_raid" = true ]; then
         device = "$disk";
         content = {
           type = "gpt";
-          partitions = {$([ "$disk_index" -eq 0 ] && cat << 'PART'
-
+          partitions = {
             BOOT = {
               size = "1M";
               type = "EF02"; # for grub MBR
@@ -104,11 +100,9 @@ if [ "$use_raid" = true ]; then
               content = {
                 type = "filesystem";
                 format = "vfat";
-                mountpoint = "/boot/efi";
+                mountpoint = "/boot${disk_index}";
               };
             };
-PART
-)
             raid = {
               size = "100%";
               content = {
