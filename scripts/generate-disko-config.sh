@@ -92,7 +92,7 @@ if [ "$use_raid" = true ]; then
         device = "$disk";
         content = {
           type = "gpt";
-          partitions = {$([ "$disk_index" -eq 0 ] && cat << 'BOOT'
+          partitions = {$([ "$disk_index" -eq 0 ] && cat << 'PART'
 
             BOOT = {
               size = "1M";
@@ -107,7 +107,7 @@ if [ "$use_raid" = true ]; then
                 mountpoint = "/boot/efi";
               };
             };
-BOOT
+PART
 )
             raid = {
               size = "100%";
