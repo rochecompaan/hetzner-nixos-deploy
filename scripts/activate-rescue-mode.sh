@@ -7,6 +7,8 @@ set -o pipefail
 # Default values
 BOOT_NIXOS=false
 HETZNER_API_BASE_URL="https://robot-ws.your-server.de"
+SERVER_IP=""
+HOSTNAME=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -16,7 +18,24 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            SERVER_IP="$1"
+            # Check if argument is an IP address
+            if [[ $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                SERVER_IP="$1"
+            else
+                HOSTNAME="$1"
+                # Look up IP from hostname's NixOS configuration
+                SERVER_IP=$(nix eval --impure --expr "
+                  let
+                    config = (builtins.import ./hosts/${HOSTNAME}/default.nix) { 
+                      config = {}; 
+                      lib = (import <nixpkgs> {}).lib;
+                    };
+                    interface = builtins.head (builtins.attrNames config.networking.interfaces);
+                    addr = builtins.head config.networking.interfaces.\${interface}.ipv4.addresses;
+                  in
+                    addr.address
+                " | tr -d '"')
+            fi
             shift
             ;;
     esac
@@ -27,9 +46,13 @@ USERNAME=$(sops -d --extract '["hetzner_robot_username"]' ./secrets/hetzner.json
 PASSWORD=$(sops -d --extract '["hetzner_robot_password"]' ./secrets/hetzner.json)
 
 if [ -z "$SERVER_IP" ]; then
-  echo "Usage: $0 [--boot-nixos] <SERVER_IP>"
+  echo "Usage: $0 [--boot-nixos] <SERVER_IP|HOSTNAME>"
   echo "Options:"
   echo "  --boot-nixos    Boot into NixOS installer after rescue mode is activated"
+  echo ""
+  echo "Arguments:"
+  echo "  SERVER_IP       IP address of the server"
+  echo "  HOSTNAME        Hostname of the server (will look up IP from NixOS config)"
   exit 1
 fi
 
