@@ -36,18 +36,8 @@ if [ ! -f "hosts/${HOSTNAME}/default.nix" ]; then
     exit 1
 fi
 
-# Extract IP address using nix evaluation
-IP_ADDRESS=$(nix eval --impure --expr "
-  let
-    config = (builtins.import ./hosts/${HOSTNAME}/default.nix) { 
-      config = {}; 
-      lib = (import <nixpkgs> {}).lib;
-    };
-    interface = builtins.head (builtins.attrNames config.networking.interfaces);
-    addr = builtins.head config.networking.interfaces.\${interface}.ipv4.addresses;
-  in
-    addr.address
-" | tr -d '"')
+# Extract IP address using common function
+IP_ADDRESS=$(get_server_ip "$HOSTNAME")
 
 if [ -z "$IP_ADDRESS" ]; then
     echo "Error: Could not extract IP address from host configuration" >&2

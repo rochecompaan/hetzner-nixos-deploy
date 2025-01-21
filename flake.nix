@@ -90,7 +90,10 @@
             jq
             sops
           ];
-          text = builtins.readFile ./scripts/deploy-nixos.sh;
+          text = ''
+            ${builtins.readFile ./lib/common.sh}
+            ${builtins.readFile ./scripts/deploy-nixos.sh}
+          '';
         };
 
         add-wireguard-admin = pkgs.writeShellApplication {
