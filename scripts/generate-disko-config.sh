@@ -8,27 +8,27 @@ SERVER_IP=""
 HOSTNAME=""
 REMOTE_USER="root"
 
-# Parse first argument
-if [ -z "$1" ] || [ -z "$2" ]; then
-    echo "Error: Server and hostname must be provided"
-    echo "Usage: generate-disko-config.sh <SERVER_IP|HOSTNAME> <host>"
+# Parse argument
+if [ -z "$1" ]; then
+    echo "Error: Server must be provided"
+    echo "Usage: generate-disko-config.sh <SERVER_IP|HOSTNAME>"
     echo ""
     echo "Arguments:"
     echo "  SERVER_IP     IP address of the server"
     echo "  HOSTNAME      Hostname of the server (will look up IP from NixOS config)"
-    echo "  host          Target host configuration name"
     exit 1
 fi
 
 # Check if argument is an IP address
 if [[ $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     SERVER_IP="$1"
+    HOSTNAME="$1"
 else
-    HOST="$1"
+    HOSTNAME="$1"
     # Look up IP from hostname's NixOS configuration
     SERVER_IP=$(nix eval --impure --expr "
       let
-        config = (builtins.import ./hosts/${HOST}/default.nix) { 
+        config = (builtins.import ./hosts/${HOSTNAME}/default.nix) { 
           config = {}; 
           lib = (import <nixpkgs> {}).lib;
         };
@@ -38,8 +38,6 @@ else
         addr.address
     " | tr -d '"')
 fi
-
-HOSTNAME="$2"
 
 # Create the output directory
 OUTPUT_DIR="./hosts/$HOSTNAME"
