@@ -10,9 +10,19 @@ for host_dir in hosts/*; do
     hostname=$(basename "$host_dir")
     echo "Processing server: $hostname"
 
-    # Get server IP from the default.nix configuration
-    ip=$(grep -A 2 'address = ' "$host_dir/default.nix" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
-    
+    # Look up IP from hostname's NixOS configuration
+    ip=$(nix eval --impure --expr "
+      let
+        config = (builtins.import ./hosts/${hostname}/default.nix) { 
+          config = {}; 
+          lib = (import <nixpkgs> {}).lib;
+        };
+        interface = builtins.head (builtins.attrNames config.networking.interfaces);
+        addr = builtins.head config.networking.interfaces.\${interface}.ipv4.addresses;
+      in
+        addr.address
+    " | tr -d '"')
+
     if [ -z "$ip" ]; then
         echo "Could not find IP address for $hostname, skipping..."
         continue
@@ -26,11 +36,11 @@ for host_dir in hosts/*; do
 
     # Step 2: Generate disk configuration
     echo "Generating disk configuration..."
-    generate-disko-config "$ip" "$hostname"
+    generate-disko-config "$hostname"
 
     # Step 3: Generate hardware configuration
     echo "Generating hardware configuration..."
-    generate-hardware-config "$ip" "$hostname"
+    generate-hardware-config "$hostname"
 
     echo "Setup complete for $hostname"
     echo "----------------------------------------"
