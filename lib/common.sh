@@ -26,6 +26,23 @@ check_json_error() {
     return 0
 }
 
+# Get server IP from hostname using NixOS config
+# Usage: get_server_ip <hostname>
+get_server_ip() {
+    local hostname="$1"
+    nix eval --impure --expr "
+      let
+        config = (builtins.import ./hosts/${hostname}/default.nix) { 
+          config = {}; 
+          lib = (import <nixpkgs> {}).lib;
+        };
+        interface = builtins.head (builtins.attrNames config.networking.interfaces);
+        addr = builtins.head config.networking.interfaces.\${interface}.ipv4.addresses;
+      in
+        addr.address
+    " | tr -d '"'
+}
+
 # Function to attempt SSH connection with exponential backoff
 # Usage: wait_for_ssh <host> <user> [expected_hostname]
 wait_for_ssh() {

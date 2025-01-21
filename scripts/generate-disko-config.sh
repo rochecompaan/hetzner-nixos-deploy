@@ -25,18 +25,7 @@ if [[ $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     HOSTNAME="$1"
 else
     HOSTNAME="$1"
-    # Look up IP from hostname's NixOS configuration
-    SERVER_IP=$(nix eval --impure --expr "
-      let
-        config = (builtins.import ./hosts/${HOSTNAME}/default.nix) { 
-          config = {}; 
-          lib = (import <nixpkgs> {}).lib;
-        };
-        interface = builtins.head (builtins.attrNames config.networking.interfaces);
-        addr = builtins.head config.networking.interfaces.\${interface}.ipv4.addresses;
-      in
-        addr.address
-    " | tr -d '"')
+    SERVER_IP=$(get_server_ip "$HOSTNAME")
 fi
 
 # Create the output directory

@@ -10,18 +10,7 @@ for host_dir in hosts/*; do
     hostname=$(basename "$host_dir")
     echo "Processing server: $hostname"
 
-    # Look up IP from hostname's NixOS configuration
-    ip=$(nix eval --impure --expr "
-      let
-        config = (builtins.import ./hosts/${hostname}/default.nix) { 
-          config = {}; 
-          lib = (import <nixpkgs> {}).lib;
-        };
-        interface = builtins.head (builtins.attrNames config.networking.interfaces);
-        addr = builtins.head config.networking.interfaces.\${interface}.ipv4.addresses;
-      in
-        addr.address
-    " | tr -d '"')
+    ip=$(get_server_ip "$hostname")
 
     if [ -z "$ip" ]; then
         echo "Could not find IP address for $hostname, skipping..."
