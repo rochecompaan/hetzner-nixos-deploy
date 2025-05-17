@@ -4,14 +4,14 @@
 # Usage: check_json_error "$(curl ...)"
 check_json_error() {
     local RESPONSE=$1
-    
+
     # Check if response is valid JSON
     if ! echo "$RESPONSE" | jq empty 2>/dev/null; then
         echo "Error: Invalid JSON response"
         echo "Response: $RESPONSE"
         exit 1
     fi
-    
+
     # Check response type and handle accordingly
     if echo "$RESPONSE" | jq 'type == "object"' | grep -q true; then
         # For objects, check for error field
@@ -21,7 +21,7 @@ check_json_error() {
             exit 1
         fi
     fi
-    
+
     # If we get here, assume success
     return 0
 }
@@ -32,12 +32,9 @@ get_server_ip() {
     local hostname="$1"
     nix eval --impure --expr "
       let
-        config = (builtins.import ./hosts/${hostname}/default.nix) { 
-          config = {}; 
-          lib = (import <nixpkgs> {}).lib;
-        };
-        interface = builtins.head (builtins.attrNames config.networking.interfaces);
-        addr = builtins.head config.networking.interfaces.\${interface}.ipv4.addresses;
+        host_config = builtins.import ./hosts/${hostname}/default.nix;
+        interface_name = builtins.head (builtins.attrNames host_config.networking.interfaces);
+        addr = builtins.head host_config.networking.interfaces.\${interface_name}.ipv4.addresses;
       in
         addr.address
     " | tr -d '"'
@@ -70,7 +67,7 @@ wait_for_ssh() {
         # Exponential backoff with max of 30 seconds
         wait_time=$(( wait_time * 2 ))
         [ $wait_time -gt 30 ] && wait_time=30
-        
+
         ((attempt++))
     done
 
