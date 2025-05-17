@@ -76,6 +76,8 @@
             jq
             yq
             bash
+            sops
+            nixfmt-rfc-style
           ];
           text = ''
             ${builtins.readFile ./lib/common.sh}

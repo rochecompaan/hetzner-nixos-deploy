@@ -61,6 +61,7 @@ SSH_KEYS_DIR="server-public-ssh-keys"
 SSH_SECRETS_FILE="secrets/server-private-ssh-keys.json"
 WG_SECRETS_FILE="secrets/wireguard.json"
 mkdir -p "$OUTPUT_DIR" "$SSH_KEYS_DIR" modules
+WIREGUARD_PEERS_FILE="modules/wireguard-peers.nix"
 
 # Download base.nix if it doesn't exist
 if [ ! -f "modules/base.nix" ]; then
@@ -85,6 +86,32 @@ cleanup() {
 }
 trap cleanup EXIT
 
+declare -A existing_peer_details_json # Key: servername, Value: JSON string of the peer from wireguard-peers.nix
+declare -A final_peer_nix_strings     # Key: servername, Value: Nix string for the peer to be written
+max_seen_ip_octet=0
+
+# Function to convert peer JSON object to Nix string
+peer_json_to_nix_string() {
+    local peer_json_str="$1"
+    local p_name p_publicKey p_allowedIPs_0 p_endpoint p_persistentKeepalive
+    p_name=$(echo "$peer_json_str" | jq -r .name)
+    p_publicKey=$(echo "$peer_json_str" | jq -r .publicKey)
+    p_allowedIPs_0=$(echo "$peer_json_str" | jq -r .allowedIPs[0])
+    p_endpoint=$(echo "$peer_json_str" | jq -r .endpoint)
+    p_persistentKeepalive=$(echo "$peer_json_str" | jq -r .persistentKeepalive)
+
+    cat <<NIX_EOF
+    {
+      name = "${p_name}";
+      publicKey = "${p_publicKey}";
+      allowedIPs = [ "${p_allowedIPs_0}" ];
+      endpoint = "${p_endpoint}";
+      persistentKeepalive = ${p_persistentKeepalive:-25};
+    }
+NIX_EOF
+}
+
+
 if [[ -f "${SSH_SECRETS_FILE}" ]]; then
     sops --decrypt "${SSH_SECRETS_FILE}" > "${DECRYPTED_SSH_SECRETS}"
 else
@@ -96,6 +123,49 @@ if [[ -f "${WG_SECRETS_FILE}" ]]; then
 else
     echo '{"servers": {}}' > "${DECRYPTED_WG_SECRETS}"
 fi
+
+if [ -f "$WIREGUARD_PEERS_FILE" ]; then
+    # Try to parse existing wireguard-peers.nix
+    # Returns [] for non-existent, empty, or invalid files that can't be imported.
+    parsed_peers_json=$(nix eval --json --impure --expr \
+        'let
+           f = ./'"$WIREGUARD_PEERS_FILE"';
+           emptyPeersList = []; # Renamed to avoid conflict if peers is a common var name
+         in
+         if builtins.pathExists f then
+           let
+             content = builtins.readFile f;
+           in
+           if content == "" then emptyPeersList
+           else
+             let
+               evalResult = builtins.tryEval (import f).peers;
+             in
+             if evalResult.success then evalResult.value else emptyPeersList
+         else emptyPeersList' 2>/dev/null || echo "[]")
+
+    if [[ "$parsed_peers_json" != "[]" && -n "$parsed_peers_json" ]]; then
+        echo "Successfully parsed existing $WIREGUARD_PEERS_FILE"
+        # Populate existing_peer_details_json and find max_seen_ip_octet
+        for row in $(echo "${parsed_peers_json}" | jq -r '.[] | @base64'); do
+            _jq() { echo "${row}" | base64 --decode | jq -r "${1}"; }
+            peer_name=$(_jq '.name')
+            existing_peer_details_json["$peer_name"]=$(echo "${row}" | base64 --decode)
+
+            ip=$(_jq '.allowedIPs[0]' | cut -d'/' -f1)
+            octet=$(echo "$ip" | awk -F. '{print $4}')
+            if [[ "$octet" -gt "$max_seen_ip_octet" ]]; then
+                max_seen_ip_octet=$octet
+            fi
+        done
+    else
+        echo "Warning: $WIREGUARD_PEERS_FILE is empty, invalid, or unreadable. Treating as new."
+    fi
+fi
+counter=$((max_seen_ip_octet + 1))
+
+existing_wg_privkeys_json=$(cat "$DECRYPTED_WG_SECRETS")
+
 ROBOT_USERNAME=$(sops -d --extract '["hetzner_robot_username"]' ./secrets/hetzner.json)
 ROBOT_PASSWORD=$(sops -d --extract '["hetzner_robot_password"]' ./secrets/hetzner.json)
 
@@ -141,14 +211,6 @@ echo "SERVERS: $SERVERS"
 # Debug output
 echo "Filtered servers matching pattern '$PATTERN':"
 echo "$SERVERS"
-
-# Create shared wireguard peers configuration
-mkdir -p modules
-cat > "modules/wireguard-peers.nix" << EOF
-{
-  peers = [
-EOF
-
 
 # Process each server
 echo "Found $(echo "$SERVERS" | wc -l) servers matching pattern '$PATTERN'"
@@ -251,25 +313,63 @@ while read -r server_json; do
     # Generate WireGuard configuration
     echo "Generating WireGuard configuration..." >&2
 
-    # Generate WireGuard keypair
-    keypair=$(generate_wireguard_keypair)
-    wg_private_key=$(echo "${keypair}" | jq -r '.privateKey')
-    wg_public_key=$(echo "${keypair}" | jq -r '.publicKey')
+    current_wg_private_ip=""
+    is_existing_peer_in_nix=false
+    if [[ -v existing_peer_details_json["$name"] ]]; then
+        is_existing_peer_in_nix=true
+        current_wg_private_ip=$(echo "${existing_peer_details_json[$name]}" | jq -r '.allowedIPs[0]' | cut -d'/' -f1)
+        echo "Server $name found in $WIREGUARD_PEERS_FILE, using IP $current_wg_private_ip."
+    else
+        current_wg_private_ip="${SUBNET_BASE}.0.${counter}"
+        echo "Server $name is new or not in $WIREGUARD_PEERS_FILE, assigning IP $current_wg_private_ip."
+        ((counter++))
+    fi
 
-    # Generate WireGuard private IP
-    wg_private_ip="${SUBNET_BASE}.0.${counter}"
-    ((counter++))
+    current_wg_private_key=""
+    current_wg_public_key=""
+    private_key_from_sops=$(echo "$existing_wg_privkeys_json" | jq -r ".servers[\"$name\"].privateKey // empty")
 
-    # Update WireGuard private key in secrets file
-    jq --arg server "$name" \
-       --arg private_key "$wg_private_key" \
-       '.servers[$server] = {"privateKey": $private_key}' \
-       "${DECRYPTED_WG_SECRETS}" > "${DECRYPTED_WG_SECRETS}.new" && mv "${DECRYPTED_WG_SECRETS}.new" "${DECRYPTED_WG_SECRETS}"
+    if [[ -n "$private_key_from_sops" && "$OVERWRITE" = false ]]; then
+        current_wg_private_key="$private_key_from_sops"
+        current_wg_public_key=$(echo "${current_wg_private_key}" | wg pubkey)
+        echo "Reusing existing WireGuard keys for $name from sops."
+    else
+        keypair=$(generate_wireguard_keypair)
+        current_wg_private_key=$(echo "${keypair}" | jq -r '.privateKey')
+        current_wg_public_key=$(echo "${keypair}" | jq -r '.publicKey')
+        echo "Generated new WireGuard keys for $name (overwrite: $OVERWRITE)."
+        # Update DECRYPTED_WG_SECRETS (sops file)
+        existing_wg_privkeys_json=$(echo "$existing_wg_privkeys_json" | jq --arg server_name "$name" --arg pk "$current_wg_private_key" \
+            '.servers[$server_name] = {"privateKey": $pk}')
+        echo "$existing_wg_privkeys_json" > "$DECRYPTED_WG_SECRETS"
+    fi
 
-    # Create server directory
-    server_dir="$OUTPUT_DIR/${name}"
-    mkdir -p "$server_dir"
+    new_peer_config_json=$(jq -n \
+        --arg name "$name" \
+        --arg publicKey "$current_wg_public_key" \
+        --arg allowedIPs "${current_wg_private_ip}/32" \
+        --arg endpoint "${public_ip}:51820" \
+        --argjson persistentKeepalive 25 \
+        '{name: $name, publicKey: $publicKey, allowedIPs: [$allowedIPs], endpoint: $endpoint, persistentKeepalive: $persistentKeepalive}')
 
+    update_this_peer_nix_entry=false
+    if [ "$is_existing_peer_in_nix" = false ] || [ "$OVERWRITE" = true ] || \
+       [[ "$(echo "${existing_peer_details_json[$name]}" | jq -S .)" != "$(echo "$new_peer_config_json" | jq -S .)" ]]; then
+        update_this_peer_nix_entry=true
+        echo "Configuration for $name requires update in $WIREGUARD_PEERS_FILE."
+    fi
+
+    final_peer_nix_strings["$name"]=$(peer_json_to_nix_string "$new_peer_config_json")
+
+    server_dir="$OUTPUT_DIR/${name}" # Define server_dir first
+    mkdir -p "$server_dir" # Ensure directory exists
+
+    # Conditionally generate wg0.nix. It's (re)generated if:
+    # 1. OVERWRITE is true.
+    # 2. The file wg0.nix doesn't exist yet (new server setup).
+    # 3. The WireGuard peer configuration specific to this server changed (update_this_peer_nix_entry is true).
+    if [ "$OVERWRITE" = true ] || [ ! -f "$server_dir/wg0.nix" ] || [ "$update_this_peer_nix_entry" = true ]; then
+        echo "Generating $server_dir/wg0.nix for $name..."
     # Generate wg0.nix configuration
     cat > "$server_dir/wg0.nix" << EOF
 { config, ... }:
@@ -278,12 +378,12 @@ let
   sharedPeers = (import ../../modules/wireguard-peers.nix).peers;
   # Filter out self from peers list
   filteredPeers = builtins.filter
-    (peer: peer.allowedIPs != [ "${wg_private_ip}/32" ])
+    (peer: peer.allowedIPs != [ "${current_wg_private_ip}/32" ])
     sharedPeers;
 in
 {
   networking.wireguard.interfaces.wg0 = {
-    ips = [ "${wg_private_ip}/24" ];
+    ips = [ "${current_wg_private_ip}/24" ]; # Use /24 for the interface IP
     listenPort = 51820;
     privateKeyFile = config.sops.secrets."servers/${name}/privateKey".path;
     peers = filteredPeers;
@@ -298,17 +398,9 @@ in
   };
 }
 EOF
-
-    # Add this server to wireguard-peers.nix
-    cat >> "modules/wireguard-peers.nix" << EOF
-    {
-      name = "${name}";
-      publicKey = "${wg_public_key}";
-      allowedIPs = [ "${wg_private_ip}/32" ];
-      endpoint = "${public_ip}:51820";
-      persistentKeepalive = 25;
-    }
-EOF
+    else
+        echo "Skipping $server_dir/wg0.nix regeneration for $name as no relevant WG changes, not overwriting, and file exists."
+    fi
 
     # Generate default.nix for this server
     cat > "$server_dir/default.nix" << EOF
@@ -345,11 +437,37 @@ EOF
     echo "----------------------------------------"
 done < <(echo "$SERVERS")
 
-# Close the shared peers configuration
-cat >> "modules/wireguard-peers.nix" << EOF
+# Reconstruct wireguard-peers.nix
+
+# Preserve peers from the original wireguard-peers.nix that were not processed (i.e., did not match PATTERN)
+echo "Checking for existing peers not matching PATTERN '$PATTERN' to preserve..."
+for original_peer_name in "${!existing_peer_details_json[@]}"; do
+    # Check if this original peer was already processed (i.e., it matched the PATTERN and is in final_peer_nix_strings)
+    # The -v check tests if the key exists.
+    if ! [[ -v final_peer_nix_strings["$original_peer_name"] ]]; then
+        # This peer was in the original file but not in the current $SERVERS list (did not match PATTERN)
+        # Add its original Nix string representation to final_peer_nix_strings to preserve it.
+        echo "Preserving non-PATTERN matching peer: $original_peer_name"
+        final_peer_nix_strings["$original_peer_name"]=$(peer_json_to_nix_string "${existing_peer_details_json[$original_peer_name]}")
+    fi
+done
+
+echo "Reconstructing $WIREGUARD_PEERS_FILE with all processed and preserved peers..."
+cat > "$WIREGUARD_PEERS_FILE" << EOF
+{
+  peers = [
+EOF
+
+# Write all peers (new, updated, and preserved non-pattern matching) to the file
+for key in "${!final_peer_nix_strings[@]}"; do
+    echo "${final_peer_nix_strings[$key]}" >> "$WIREGUARD_PEERS_FILE"
+done
+
+cat >> "$WIREGUARD_PEERS_FILE" << EOF
   ];
 }
 EOF
+nixfmt "$WIREGUARD_PEERS_FILE"
 
 # Encrypt the final secrets files
 echo "Encrypting secrets files..." >&2
