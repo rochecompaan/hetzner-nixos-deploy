@@ -32,7 +32,14 @@ get_server_ip() {
     local hostname="$1"
     nix eval --impure --expr "
       let
-        host_config = builtins.import ./hosts/${hostname}/default.nix;
+        imported_config = builtins.import ./hosts/${hostname}/default.nix;
+        host_config =
+          if builtins.isFunction imported_config
+          then imported_config { # Call it if it's a function
+            config = {};
+            lib = (import <nixpkgs> {}).lib; # Provide a basic lib
+          }
+          else imported_config; # Use directly if it's an attrset
         interface_name = builtins.head (builtins.attrNames host_config.networking.interfaces);
         addr = builtins.head host_config.networking.interfaces.\${interface_name}.ipv4.addresses;
       in
