@@ -83,6 +83,9 @@ cat << EOF > "$DISKO_CONFIG_FILE"
         efiSupport = true;
         efiInstallAsRemovable = true;
       };
+      efi = {
+        efiSysMountPoint = "/boot/efi";
+      };
     };
   };
 
@@ -96,7 +99,7 @@ if [ "$use_raid" = true ]; then
     for disk_info in $disks; do
         disk=$(echo "$disk_info" | cut -d',' -f1)
         disk_name=$(basename "$disk")
-        
+
         cat << EOF >> "$DISKO_CONFIG_FILE"
       $disk_name = {
         type = "disk";
