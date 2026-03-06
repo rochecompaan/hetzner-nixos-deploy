@@ -107,6 +107,9 @@ trap cleanup EXIT
 
 declare -A existing_peer_details_json # Key: servername, Value: JSON string of the peer from wireguard-peers.nix
 declare -A final_peer_nix_strings     # Key: servername, Value: Nix string for the peer to be written
+declare -A new_peer_seen              # Key: servername, Value: marker for peers newly added in this run
+declare -a existing_peer_order        # Preserves peer order from existing wireguard-peers.nix
+declare -a new_peer_order             # Tracks only newly added peers, in discovery order
 max_seen_ip_octet=0
 
 # Function to convert peer JSON object to Nix string
@@ -169,7 +172,10 @@ if [ -f "$WIREGUARD_PEERS_FILE" ]; then
         for row in $(echo "${parsed_peers_json}" | jq -r '.[] | @base64'); do
             _jq() { echo "${row}" | base64 --decode | jq -r "${1}"; }
             peer_name=$(_jq '.name')
-            existing_peer_details_json["$peer_name"]=$(echo "${row}" | base64 --decode)
+            peer_json=$(echo "${row}" | base64 --decode)
+            existing_peer_details_json["$peer_name"]="$peer_json"
+            final_peer_nix_strings["$peer_name"]=$(peer_json_to_nix_string "$peer_json")
+            existing_peer_order+=("$peer_name")
 
             ip=$(_jq '.allowedIPs[0]' | cut -d'/' -f1)
             octet=$(echo "$ip" | awk -F. '{print $4}')
@@ -341,6 +347,10 @@ while read -r server_json; do
     else
         current_wg_private_ip="${SUBNET_BASE}.0.${counter}"
         echo "Server $name is new or not in $WIREGUARD_PEERS_FILE, assigning IP $current_wg_private_ip."
+        if ! [[ -v new_peer_seen["$name"] ]]; then
+            new_peer_order+=("$name")
+            new_peer_seen["$name"]=1
+        fi
         ((counter++))
     fi
 
@@ -458,27 +468,25 @@ done < <(echo "$SERVERS")
 
 # Reconstruct wireguard-peers.nix
 
-# Preserve peers from the original wireguard-peers.nix that were not processed (i.e., did not match PATTERN)
-echo "Checking for existing peers not matching PATTERN '$PATTERN' to preserve..."
-for original_peer_name in "${!existing_peer_details_json[@]}"; do
-    # Check if this original peer was already processed (i.e., it matched the PATTERN and is in final_peer_nix_strings)
-    # The -v check tests if the key exists.
-    if ! [[ -v final_peer_nix_strings["$original_peer_name"] ]]; then
-        # This peer was in the original file but not in the current $SERVERS list (did not match PATTERN)
-        # Add its original Nix string representation to final_peer_nix_strings to preserve it.
-        echo "Preserving non-PATTERN matching peer: $original_peer_name"
-        final_peer_nix_strings["$original_peer_name"]=$(peer_json_to_nix_string "${existing_peer_details_json[$original_peer_name]}")
-    fi
-done
-
-echo "Reconstructing $WIREGUARD_PEERS_FILE with all processed and preserved peers..."
+echo "Reconstructing $WIREGUARD_PEERS_FILE with existing peer order preserved..."
 cat > "$WIREGUARD_PEERS_FILE" << EOF
 {
   peers = [
 EOF
 
-# Write all peers (new, updated, and preserved non-pattern matching) to the file
-for key in "${!final_peer_nix_strings[@]}"; do
+# Write existing peers in their original order
+for key in "${existing_peer_order[@]}"; do
+    if ! [[ -v final_peer_nix_strings["$key"] ]]; then
+        continue
+    fi
+    echo "${final_peer_nix_strings[$key]}" >> "$WIREGUARD_PEERS_FILE"
+done
+
+# Append peers discovered in this run that did not exist previously
+for key in "${new_peer_order[@]}"; do
+    if [[ -v existing_peer_details_json["$key"] ]]; then
+        continue
+    fi
     echo "${final_peer_nix_strings[$key]}" >> "$WIREGUARD_PEERS_FILE"
 done
 
