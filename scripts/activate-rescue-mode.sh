@@ -7,6 +7,7 @@ set -o pipefail
 # Default values
 BOOT_NIXOS=false
 HETZNER_API_BASE_URL="https://robot-ws.your-server.de"
+SECRETS_BASE_PATH="${SECRETS_BASE_PATH:-./secrets}"
 SERVER_IP=""
 HOSTNAME=""
 
@@ -16,6 +17,14 @@ while [[ $# -gt 0 ]]; do
         --boot-nixos)
             BOOT_NIXOS=true
             shift
+            ;;
+        --secrets-base-path)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --secrets-base-path requires a path argument"
+                exit 1
+            fi
+            SECRETS_BASE_PATH="$2"
+            shift 2
             ;;
         *)
             # Check if argument is an IP address
@@ -30,14 +39,20 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+SECRETS_DIR="${SECRETS_BASE_PATH%/}"
+HETZNER_SECRETS_FILE="${SECRETS_DIR}/hetzner.json"
+
 echo "Decrypting secrets..."
-USERNAME=$(sops -d --extract '["hetzner_robot_username"]' ./secrets/hetzner.json)
-PASSWORD=$(sops -d --extract '["hetzner_robot_password"]' ./secrets/hetzner.json)
+USERNAME=$(sops -d --extract '["hetzner_robot_username"]' "$HETZNER_SECRETS_FILE")
+PASSWORD=$(sops -d --extract '["hetzner_robot_password"]' "$HETZNER_SECRETS_FILE")
 
 if [ -z "$SERVER_IP" ]; then
-  echo "Usage: $0 [--boot-nixos] <SERVER_IP|HOSTNAME>"
+  echo "Usage: $0 [--boot-nixos] [--secrets-base-path PATH] <SERVER_IP|HOSTNAME>"
   echo "Options:"
   echo "  --boot-nixos    Boot into NixOS installer after rescue mode is activated"
+  echo "  --secrets-base-path PATH"
+  echo "                  Base directory for secret files"
+  echo "                  (env: SECRETS_BASE_PATH, default: ./secrets)"
   echo ""
   echo "Arguments:"
   echo "  SERVER_IP       IP address of the server"

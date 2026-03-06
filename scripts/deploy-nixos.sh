@@ -4,10 +4,19 @@ set -euo pipefail
 # Default values
 HOSTNAME=""
 EXTRA_ARGS=()
+SECRETS_BASE_PATH="${SECRETS_BASE_PATH:-./secrets}"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --secrets-base-path)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --secrets-base-path requires a path argument" >&2
+                exit 1
+            fi
+            SECRETS_BASE_PATH="$2"
+            shift 2
+            ;;
         -*)
             EXTRA_ARGS+=("$1")
             shift
@@ -23,10 +32,14 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+SECRETS_DIR="${SECRETS_BASE_PATH%/}"
+SSH_SECRETS_FILE="${SECRETS_DIR}/server-private-ssh-keys.json"
+
 # Validate required arguments
 if [ -z "$HOSTNAME" ]; then
-    echo "Usage: deploy-nixos <hostname> [extra nixos-anywhere args...]" >&2
-    echo "Example: deploy-nixos myserver" >&2
+    echo "Usage: deploy-nixos [--secrets-base-path PATH] <hostname> [extra nixos-anywhere args...]" >&2
+    echo "Environment: SECRETS_BASE_PATH (default: ./secrets)" >&2
+    echo "Example: SECRETS_BASE_PATH=./secrets/devops deploy-nixos myserver" >&2
     exit 1
 fi
 
@@ -62,11 +75,11 @@ install -d -m755 "$TEMP_DIR/etc/ssh"
 
 # Decrypt and install SSH host keys
 echo "Installing SSH host keys for $HOSTNAME..." >&2
-sops --decrypt secrets/server-private-ssh-keys.json | \
+sops --decrypt "$SSH_SECRETS_FILE" | \
     jq -r --arg name "$HOSTNAME" \
     '.[$name].rsa' > "$TEMP_DIR/etc/ssh/ssh_host_rsa_key"
 
-sops --decrypt secrets/server-private-ssh-keys.json | \
+sops --decrypt "$SSH_SECRETS_FILE" | \
     jq -r --arg name "$HOSTNAME" \
     '.[$name].ed25519' > "$TEMP_DIR/etc/ssh/ssh_host_ed25519_key"
 

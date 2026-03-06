@@ -5,6 +5,7 @@ set -euo pipefail
 # Default values
 PATTERN=""
 OVERWRITE=false
+SECRETS_BASE_PATH="${SECRETS_BASE_PATH:-./secrets}"
 WG_SUBNET="172.16.0.0/16"
 counter=1  # Counter for WireGuard IPs
 
@@ -29,11 +30,14 @@ generate_wireguard_keypair() {
 }
 
 # Show usage if --help is specified
-if [ "$1" = "--help" ]; then
-    echo "Usage: $0 [--overwrite] [PATTERN]" >&2
+if [[ "${1:-}" = "--help" ]]; then
+    echo "Usage: $0 [--overwrite] [--secrets-base-path PATH] [PATTERN]" >&2
     echo "" >&2
     echo "Options:" >&2
     echo "  --overwrite    Overwrite existing configurations" >&2
+    echo "  --secrets-base-path PATH" >&2
+    echo "                 Base directory for secret files" >&2
+    echo "                 (env: SECRETS_BASE_PATH, default: ./secrets)" >&2
     echo "  PATTERN        Optional pattern to filter server names" >&2
     exit 1
 fi
@@ -44,6 +48,14 @@ while [[ $# -gt 0 ]]; do
         --overwrite)
             OVERWRITE=true
             shift
+            ;;
+        --secrets-base-path)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --secrets-base-path requires a path argument" >&2
+                exit 1
+            fi
+            SECRETS_BASE_PATH="$2"
+            shift 2
             ;;
         *)
             if [ -z "$PATTERN" ]; then
@@ -58,9 +70,16 @@ done
 declare -g AGE_KEYS=""
 OUTPUT_DIR="hosts"
 SSH_KEYS_DIR="server-public-ssh-keys"
-SSH_SECRETS_FILE="secrets/server-private-ssh-keys.json"
-WG_SECRETS_FILE="secrets/wireguard.json"
-mkdir -p "$OUTPUT_DIR" "$SSH_KEYS_DIR" modules
+SECRETS_DIR="${SECRETS_BASE_PATH%/}"
+HETZNER_SECRETS_FILE="${SECRETS_DIR}/hetzner.json"
+SSH_SECRETS_FILE="${SECRETS_DIR}/server-private-ssh-keys.json"
+WG_SECRETS_FILE="${SECRETS_DIR}/wireguard.json"
+if [[ "$SECRETS_DIR" = /* ]]; then
+    WG_SECRETS_NIX_PATH="${SECRETS_DIR}/wireguard.json"
+else
+    WG_SECRETS_NIX_PATH="../../${SECRETS_DIR#./}/wireguard.json"
+fi
+mkdir -p "$OUTPUT_DIR" "$SSH_KEYS_DIR" modules "$SECRETS_DIR"
 WIREGUARD_PEERS_FILE="modules/wireguard-peers.nix"
 
 # Download base.nix if it doesn't exist
@@ -77,8 +96,8 @@ if [ ! -f "hosts/default.nix" ]; then
 fi
 
 # Create temporary decrypted secrets files
-DECRYPTED_SSH_SECRETS=$(mktemp -p secrets --suffix=".json")
-DECRYPTED_WG_SECRETS=$(mktemp -p secrets --suffix=".json")
+DECRYPTED_SSH_SECRETS=$(mktemp -p "$SECRETS_DIR" --suffix=".json")
+DECRYPTED_WG_SECRETS=$(mktemp -p "$SECRETS_DIR" --suffix=".json")
 
 # Ensure cleanup of temporary files
 cleanup() {
@@ -166,14 +185,14 @@ counter=$((max_seen_ip_octet + 1))
 
 existing_wg_privkeys_json=$(cat "$DECRYPTED_WG_SECRETS")
 
-ROBOT_USERNAME=$(sops -d --extract '["hetzner_robot_username"]' ./secrets/hetzner.json)
-ROBOT_PASSWORD=$(sops -d --extract '["hetzner_robot_password"]' ./secrets/hetzner.json)
-
 # Get Hetzner Robot credentials from SOPS
-if [ ! -f "secrets/hetzner.json" ]; then
-    echo "Error: secrets/hetzner.json not found" >&2
+if [ ! -f "$HETZNER_SECRETS_FILE" ]; then
+    echo "Error: $HETZNER_SECRETS_FILE not found" >&2
     exit 1
 fi
+
+ROBOT_USERNAME=$(sops -d --extract '["hetzner_robot_username"]' "$HETZNER_SECRETS_FILE")
+ROBOT_PASSWORD=$(sops -d --extract '["hetzner_robot_password"]' "$HETZNER_SECRETS_FILE")
 
 if [ -z "$ROBOT_USERNAME" ] || [ -z "$ROBOT_PASSWORD" ]; then
     echo "Error: Could not decrypt Hetzner Robot credentials" >&2
@@ -392,7 +411,7 @@ in
   sops = {
     secrets = {
       "servers/${name}/privateKey" = {
-        sopsFile = ../../secrets/wireguard.json;
+        sopsFile = ${WG_SECRETS_NIX_PATH};
       };
     };
   };

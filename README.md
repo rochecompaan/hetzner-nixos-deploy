@@ -166,17 +166,44 @@ For detailed instructions, follow the setup phases below.
    For more details on using SOPS with NixOS, see the
    [sops-nix documentation](https://github.com/Mic92/sops-nix).
 
+4. Secrets Base Path
+
+   The scripts that read/write encrypted secrets default to `./secrets`.
+
+   You can override this in two ways:
+
+   ```bash
+   # Option 1: environment variable (applies to all supported scripts)
+   export SECRETS_BASE_PATH=./secrets/devops
+
+   # Option 2: per-command flag
+   generate-server-config --secrets-base-path ./secrets/devops
+   activate-rescue-mode --secrets-base-path ./secrets/devops <server-ip>
+   deploy-nixos --secrets-base-path ./secrets/devops <hostname>
+   ```
+
+   If both are set, the CLI flag takes precedence over the environment
+   variable.
+
+   If you use a non-default secrets path, update `.sops.yaml` `path_regex`
+   rules accordingly.
+
 ### 2. Server Discovery & Configuration
 
 1. Create Hetzner Robot credentials file:
 
    ```bash
-   echo '{"hetzner_robot_username": "your-username", "hetzner_robot_password": "your-password"}' | sops -e > secrets/hetzner.json
+   SECRETS_DIR="${SECRETS_BASE_PATH:-./secrets}"
+   mkdir -p "$SECRETS_DIR"
+   echo '{"hetzner_robot_username": "your-username", "hetzner_robot_password": "your-password"}' | sops -e > "$SECRETS_DIR/hetzner.json"
    ```
 
 2. Generate server configurations using the Hetzner Robot API:
 
    ```bash
+   # Optional: set once for this shell/session
+   export SECRETS_BASE_PATH=./secrets/devops
+
    # Generate for all servers
    generate-server-config
 
@@ -186,8 +213,8 @@ For detailed instructions, follow the setup phases below.
    # Overwrite existing configurations
    generate-server-config --overwrite "myproject"
 
-   # Specify custom WireGuard subnet
-   generate-server-config --subnet "10.0.0.0/16" "myproject"
+   # Override secrets path for only this command
+   generate-server-config --secrets-base-path ./secrets/devops "myproject"
    ```
 
    This will create a NixOS configuration for each server in the `hosts/`
@@ -253,19 +280,26 @@ For detailed instructions, follow the setup phases below.
              - *server_server2
    ```
 
-   Make sure to run `sops updatekeys secrets/wireguard.json` to re-encrypt
-   secrets.
+   Make sure to run
+   `sops updatekeys "${SECRETS_BASE_PATH:-./secrets}/wireguard.json"` to
+   re-encrypt secrets.
 
 ### 3. Hardware Setup
 
 1. Activate rescue mode:
 
    ```bash
+   # Optional: set once for this shell/session
+   export SECRETS_BASE_PATH=./secrets/devops
+
    # Just activate rescue mode
    activate-rescue-mode <server-ip>
 
    # Or activate rescue mode and boot into NixOS installer
    activate-rescue-mode --boot-nixos <server-ip>
+
+   # Or override secrets path for only this command
+   activate-rescue-mode --secrets-base-path ./secrets/devops <server-ip>
    ```
 
 2. Generate disk configuration:
@@ -330,7 +364,7 @@ automatically.
    - Assigns sequential IPs in the 172.16.0.0/16 range
    - Creates `wg0.nix` modules in each server's directory
    - Maintains a shared peers configuration in `modules/wireguard-peers.nix`
-   - Encrypts private keys in `secrets/wireguard.json`
+   - Encrypts private keys in `${SECRETS_BASE_PATH:-./secrets}/wireguard.json`
 
    The generated configurations enable secure communication between servers and
    administrators.
@@ -385,7 +419,13 @@ automatically.
 2. Initial Deployment:
 
    ```bash
+   # Optional: set once for this shell/session
+   export SECRETS_BASE_PATH=./secrets/devops
+
    deploy-nixos <hostname>
+
+   # Or override secrets path for only this command
+   deploy-nixos --secrets-base-path ./secrets/devops <hostname>
    ```
 
    After deployment:
@@ -426,7 +466,7 @@ automatically.
 3. Backup Strategy:
 
    - Keep encrypted copies of:
-     - `secrets/wireguard.json`
+     - `${SECRETS_BASE_PATH:-./secrets}/wireguard.json`
      - Any custom configurations
    - Store backups in a secure location
    - Test restoration procedures regularly
@@ -442,7 +482,7 @@ automatically.
 .
 ├── modules/
 │   └── base.nix                       # Base system configuration
-├── secrets/
+├── secrets/                           # Default secrets base path
 │   ├── hetnzer.json                   # Hetzner username and password
 │   ├── server-private-ssh-keys.json   # Server private ssh keys
 │   └── wireguard.json                 # WireGuard keys and configurations
