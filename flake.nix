@@ -2,7 +2,7 @@
   description = "Hetzner-specific NixOS deployment scripts and expressions";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
     sops-nix.url = "github:Mic92/sops-nix";
     disko.url = "github:nix-community/disko";
   };
